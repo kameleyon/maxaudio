@@ -56,16 +56,20 @@ export function Studio() {
   const generateAudio = async (textContent: string) => {
     setIsGeneratingAudio(true);
     try {
-      const response = await fetch('http://localhost:3000/api/audio/generate', {
+      const response = await fetch('/api/audio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: textContent, languageCode: 'en-US', voiceName: settings.voice }),
       });
-      const data = await response.json();
+      
       if (response.ok) {
-        setAudioUrl(`http://localhost:3000${data.audioUrl}`);
+        // Create blob from audio data and create URL
+        const audioBlob = await response.blob();
+        const url = URL.createObjectURL(audioBlob);
+        setAudioUrl(url);
       } else {
-        console.error('Audio generation error:', data.error);
+        const error = await response.text();
+        console.error('Audio generation error:', error);
       }
     } catch (error) {
       console.error('Audio generation error:', error);
