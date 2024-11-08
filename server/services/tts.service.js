@@ -1,5 +1,3 @@
-// File: services/tts.service.ts
-
 import axios from 'axios';
 
 const apiClient = axios.create({
