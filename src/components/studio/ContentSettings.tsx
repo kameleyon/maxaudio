@@ -1,9 +1,19 @@
 import { useState } from 'react';
 import { Toggle } from '../ui/Toggle';
 
-export function ContentSettings() {
-  const [voiceType, setVoiceType] = useState<'library' | 'clone'>('library');
+export interface ContentSettingsType {
+  category: string;
+  tone: string;
+  voiceType: 'library' | 'clone';
+  voice: string;
+}
 
+interface ContentSettingsProps {
+  settings: ContentSettingsType;
+  onChange: (settings: ContentSettingsType) => void;
+}
+
+export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const categories = [
     'Podcast', 'TED Talk', 'News', 'Narrative', 'Class',
     'Advertisement', 'Comedy', 'Motivational', 'Meditation',
@@ -17,14 +27,49 @@ export function ContentSettings() {
 
   const voices = {
     library: [
-      'en-US-Standard-A', 'en-US-Standard-B',
-      'en-US-Standard-C', 'en-US-Standard-D',
-      'en-GB-Standard-A', 'en-GB-Standard-B',
-      'en-GB-Standard-C', 'en-GB-Standard-D'
+      // US Journey voices
+      'en-US-Journey-D', 'en-US-Journey-F', 'en-US-Journey-O',
+      // GB Journey voices
+      'en-GB-Journey-D', 'en-GB-Journey-F', 'en-GB-Journey-O',
+      
+      // US Casual voices
+      'en-US-Casual-K',
+      // GB Casual voices
+      'en-GB-Casual-K',
+      
+      // US News voices
+      'en-US-News-K', 'en-US-News-L', 'en-US-News-N',
+      // GB News voices
+      'en-GB-News-K', 'en-GB-News-L', 'en-GB-News-N',
+      
+      // US Studio voices
+      'en-US-Studio-O', 'en-US-Studio-Q',
+      // GB Studio voices
+      'en-GB-Studio-O', 'en-GB-Studio-Q',
+      
+      // US Polyglot voices
+      'en-US-Polyglot-1',
+      // GB Polyglot voices
+      'en-GB-Polyglot-1'
     ],
     clone: [
       'My Voice 1', 'My Voice 2', 'My Voice 3'
     ]
+  };
+
+  const handleSettingChange = (key: keyof ContentSettingsType, value: string) => {
+    onChange({
+      ...settings,
+      [key]: value
+    });
+  };
+
+  const handleVoiceTypeChange = (type: 'library' | 'clone') => {
+    onChange({
+      ...settings,
+      voiceType: type,
+      voice: voices[type][0] // Set first voice of selected type as default
+    });
   };
 
   return (
@@ -38,6 +83,8 @@ export function ContentSettings() {
             Category
           </label>
           <select
+            value={settings.category}
+            onChange={(e) => handleSettingChange('category', e.target.value)}
             className="w-full px-4 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg 
                      focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
                      text-white"
@@ -56,6 +103,8 @@ export function ContentSettings() {
             Tone
           </label>
           <select
+            value={settings.tone}
+            onChange={(e) => handleSettingChange('tone', e.target.value)}
             className="w-full px-4 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg 
                      focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
                      text-white"
@@ -73,8 +122,8 @@ export function ContentSettings() {
           <div className="flex items-center justify-between mb-2">
             <label className="text-sm font-medium">Voice</label>
             <Toggle
-              value={voiceType}
-              onChange={setVoiceType}
+              value={settings.voiceType}
+              onChange={handleVoiceTypeChange}
               options={[
                 { value: 'library', label: 'Library' },
                 { value: 'clone', label: 'Clone' }
@@ -83,11 +132,13 @@ export function ContentSettings() {
           </div>
           
           <select
+            value={settings.voice}
+            onChange={(e) => handleSettingChange('voice', e.target.value)}
             className="w-full px-4 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg 
                      focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
                      text-white"
           >
-            {voices[voiceType].map((voice) => (
+            {voices[settings.voiceType].map((voice) => (
               <option key={voice} value={voice}>
                 {voice}
               </option>

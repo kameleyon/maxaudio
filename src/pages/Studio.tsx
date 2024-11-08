@@ -1,27 +1,32 @@
 import { useState } from 'react';
 import { Upload, Loader2, Edit2, Save, RotateCcw, MoreVertical } from 'lucide-react';
 import { ContentInput } from '../components/studio/ContentInput';
-import { ContentSettings } from '../components/studio/ContentSettings';
+import { ContentSettings, ContentSettingsType } from '../components/studio/ContentSettings';
 import { TranscriptEditor } from '../components/studio/TranscriptEditor';
 import { AudioPlayer } from '../components/studio/AudioPlayer';
 import { PublishConfirmation } from '../components/studio/PublishConfirmation';
 import { generateContent } from '../services/openrouter';
 
-interface ContentSettings {
-  category: string;
+interface GenerateContentParams {
+  content: string;
   tone: string;
-  voiceType: 'library' | 'clone';
-  voice: string;
+  category: string;
+}
+
+interface AudioGenerateParams {
+  text: string;
+  languageCode: 'en-GB' | 'en-US';
+  voiceName: string;
 }
 
 export function Studio() {
   // Content state
   const [content, setContent] = useState('');
-  const [settings, setSettings] = useState<ContentSettings>({
+  const [settings, setSettings] = useState<ContentSettingsType>({
     category: 'podcast',
     tone: 'professional',
     voiceType: 'library',
-    voice: 'en-US-Standard-A'
+    voice: 'en-US-Journey-D'
   });
 
   // Generation state
@@ -37,16 +42,18 @@ export function Studio() {
     setError(null);
     
     try {
-      const generatedContent = await generateContent({
+      const params: GenerateContentParams = {
         content,
         tone: settings.tone,
         category: settings.category
-      });
+      };
+      
+      const generatedContent = await generateContent(params);
       
       setTranscript(generatedContent);
       generateAudio(generatedContent);
-    } catch (error) {
-      console.error('Generation error:', error);
+    } catch (err) {
+      console.error('Generation error:', err);
       setError('Failed to generate content. Please try again.');
     } finally {
       setIsGenerating(false);
@@ -56,23 +63,29 @@ export function Studio() {
   const generateAudio = async (textContent: string) => {
     setIsGeneratingAudio(true);
     try {
+      const params: AudioGenerateParams = {
+        text: textContent,
+        languageCode: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
+        voiceName: settings.voice
+      };
+
       const response = await fetch('/api/audio/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: textContent, languageCode: 'en-US', voiceName: settings.voice }),
+        body: JSON.stringify(params),
       });
       
       if (response.ok) {
-        // Create blob from audio data and create URL
         const audioBlob = await response.blob();
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
       } else {
-        const error = await response.text();
-        console.error('Audio generation error:', error);
+        const errorText = await response.text();
+        throw new Error(errorText);
       }
-    } catch (error) {
-      console.error('Audio generation error:', error);
+    } catch (err) {
+      console.error('Audio generation error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to generate audio');
     } finally {
       setIsGeneratingAudio(false);
     }
