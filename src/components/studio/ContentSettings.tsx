@@ -72,6 +72,19 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
     });
   };
 
+  const selectClasses = `
+    w-full px-4 py-2 
+    bg-white/10 backdrop-blur-sm 
+    border border-white/20 
+    rounded-lg 
+    text-white
+    focus:outline-none focus:border-[#9de9c7] focus:ring-1 focus:ring-[#9de9c7]
+    appearance-none
+    [&>option]:bg-[#0f0035]
+    [&>option]:text-white
+    [&>option]:backdrop-blur-sm
+  `;
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold">Settings</h2>
@@ -85,9 +98,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
           <select
             value={settings.category}
             onChange={(e) => handleSettingChange('category', e.target.value)}
-            className="w-full px-4 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg 
-                     focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
-                     text-white"
+            className={selectClasses}
           >
             {categories.map((category) => (
               <option key={category} value={category.toLowerCase()}>
@@ -105,9 +116,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
           <select
             value={settings.tone}
             onChange={(e) => handleSettingChange('tone', e.target.value)}
-            className="w-full px-4 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg 
-                     focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
-                     text-white"
+            className={selectClasses}
           >
             {tones.map((tone) => (
               <option key={tone} value={tone.toLowerCase()}>
@@ -134,9 +143,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
           <select
             value={settings.voice}
             onChange={(e) => handleSettingChange('voice', e.target.value)}
-            className="w-full px-4 py-2 bg-[#1a1a2e] border border-white/10 rounded-lg 
-                     focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
-                     text-white"
+            className={selectClasses}
           >
             {voices[settings.voiceType].map((voice) => (
               <option key={voice} value={voice}>

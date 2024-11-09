@@ -8,9 +8,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        primary: '#63248d',
-        secondary: '#189571',
-        accent: '#bceee7',
+        primary: {
+          DEFAULT: '#40b4c7',  // Light blue/teal for light theme
+          dark: '#63248d',     // Original purple for dark theme
+        },
+        secondary: {
+          DEFAULT: '#189571',
+          dark: '#189571',
+        },
+        accent: {
+          DEFAULT: '#9de9c7',  // Updated to requested color
+          dark: '#bceee7',
+        },
       },
       fontFamily: {
         sans: ['Montserrat', 'sans-serif'],

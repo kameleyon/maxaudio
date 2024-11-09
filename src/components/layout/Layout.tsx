@@ -8,10 +8,12 @@ export function Layout() {
   const { isSignedIn } = useUser()
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#0f0035] to-[#1859c7] dark:from-[#0f0035] dark:to-[#0e7584] text-white">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-[#0f0035] to-[#40b4c7] dark:from-[#0f0035] dark:to-[#0e7584] text-white">
       <Navbar />
       {isSignedIn && <Sidebar />}
-      <main className={`flex-grow container mx-auto px-4 py-8 ${isSignedIn ? 'ml-16' : ''}`}>
+      <main className={`flex-grow container mx-auto px-4 py-8 mt-16 transition-all duration-300 ${
+        isSignedIn ? 'md:ml-16' : ''
+      }`}>
         <Outlet />
       </main>
       <Footer />

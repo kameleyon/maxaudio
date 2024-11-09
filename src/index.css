@@ -5,10 +5,16 @@
 @tailwind utilities;
 
 :root {
-  --primary: #63248d;
+  --primary: #40b4c7;  /* Light blue/teal for light theme */
+  --secondary: #189571;
+  --accent: #9de9c7;   /* Updated accent color */
+  --background: #0f0035;
+}
+
+.dark {
+  --primary: #63248d;  /* Keep original purple for dark theme */
   --secondary: #189571;
   --accent: #bceee7;
-  --background: #0f0035;
 }
 
 body {
@@ -50,15 +56,19 @@ body {
 }
 
 .cl-formButtonPrimary:hover {
-  background-color: rgba(99, 36, 141, 0.8) !important;
+  background-color: rgba(64, 180, 199, 0.8) !important;  /* Updated for light theme */
+}
+
+.dark .cl-formButtonPrimary:hover {
+  background-color: rgba(99, 36, 141, 0.8) !important;  /* Keep dark theme hover */
 }
 
 .cl-footerActionLink {
-  color: var(--primary) !important;
+  color: var(--accent) !important;
 }
 
 .cl-footerActionLink:hover {
-  color: rgba(99, 36, 141, 0.8) !important;
+  color: rgba(157, 233, 199, 0.8) !important;  /* Updated accent hover */
 }
 
 /* Custom Clerk form styling */
@@ -93,4 +103,25 @@ body {
 
 .cl-dividerLine {
   border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Responsive fixes */
+@media (max-width: 768px) {
+  .fixed {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+  }
+  
+  .input-container {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+  
+  .dropdown-menu {
+    background-color: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(8px);
+  }
 }
