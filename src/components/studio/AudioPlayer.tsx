@@ -38,6 +38,37 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
     }
   };
 
+  const handleDownload = () => {
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${label || 'audio'}.mp3`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: label || 'Audio',
+          text: 'Check out this audio',
+          url: url
+        });
+      } catch (err) {
+        console.error('Share failed:', err);
+      }
+    } else {
+      // Fallback to copy to clipboard
+      try {
+        await navigator.clipboard.writeText(url);
+        console.log('Link copied to clipboard');
+      } catch (err) {
+        console.error('Copy failed:', err);
+      }
+    }
+  };
+
   return (
     <div className="space-y-4">
       <audio
@@ -86,12 +117,14 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
             <RotateCcw className="w-5 h-5" />
           </button>
           <button
+            onClick={handleDownload}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             title="Download"
           >
             <Download className="w-5 h-5" />
           </button>
           <button
+            onClick={handleShare}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             title="Share"
           >
