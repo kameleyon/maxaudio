@@ -10,7 +10,7 @@ import { Help } from './pages/Help'
 import { Notifications } from './pages/Notifications'
 import { About } from './pages/About'
 import { Admin } from './pages/Admin'
-import { TTSTest } from './pages/TTSTest'
+//import { TTSTest } from './pages/TTSTest'
 import { NotFound } from './pages/NotFound'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { AdminRoute } from './components/auth/AdminRoute'
@@ -54,11 +54,6 @@ export default function App() {
         <Route path="about" element={
           <ProtectedRoute>
             <About />
-          </ProtectedRoute>
-        } />
-        <Route path="tts-test" element={
-          <ProtectedRoute>
-            <TTSTest />
           </ProtectedRoute>
         } />
         <Route path="admin/*" element={

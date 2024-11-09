@@ -61,7 +61,7 @@ export function Sidebar() {
     { icon: Wand2, label: 'Studio', path: '/studio' },
     { icon: FolderOpen, label: 'My Files', path: '/files' },
     { icon: Mic, label: 'My Voices', path: '/voice-cloning' },
-    { icon: Headphones, label: 'TTS Test', path: '/tts-test' },
+   // { icon: Headphones, label: 'TTS Test', path: '/tts-test' },
     { icon: Settings, label: 'Settings', path: '/settings' },
     { icon: HelpCircle, label: 'Support', path: '/help' },
     { icon: Bell, label: 'Updates', path: '/notifications' },
