@@ -5,7 +5,6 @@ import { ContentSettings, ContentSettingsType } from '../components/studio/Conte
 import { TranscriptEditor } from '../components/studio/TranscriptEditor';
 import { AudioPlayer } from '../components/studio/AudioPlayer';
 import { PublishConfirmation } from '../components/studio/PublishConfirmation';
-import { AudioGeneratorTest } from '../components/studio/AudioGeneratorTest';
 import { generateContent } from '../services/openrouter';
 
 interface GenerateContentParams {
@@ -47,7 +46,6 @@ export function Studio() {
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishSuccessMessage, setPublishSuccessMessage] = useState<string | null>(null);
-  const [showTestComponent, setShowTestComponent] = useState(false);
 
   const generateFileName = (text: string) => {
     const date = new Date();
@@ -140,15 +138,7 @@ export function Studio() {
     <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
       {/* Header with Workflow */}
       <div>
-        <div className="flex justify-between items-center">
-          <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
-          <button
-            onClick={() => setShowTestComponent(!showTestComponent)}
-            className="px-3 py-1 text-sm bg-[#63248d]/50 hover:bg-[#63248d]/80 rounded transition-colors"
-          >
-            {showTestComponent ? 'Hide Test' : 'Show Test'}
-          </button>
-        </div>
+        <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
         <div className="p-3 bg-white/5 rounded-lg border border-white/10 overflow-x-auto">
           <div className="flex items-center justify-between text-sm text-white/60 whitespace-nowrap">
             <div className="flex items-center gap-2">
@@ -157,11 +147,6 @@ export function Studio() {
           </div>
         </div>
       </div>
-
-      {/* Test Component */}
-      {showTestComponent && (
-        <AudioGeneratorTest />
-      )}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">

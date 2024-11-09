@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Play, Pause, Download, Share2 } from 'lucide-react';
+import { Play, Pause, Download } from 'lucide-react';
 
 interface AudioPlayerProps {
   url: string;
@@ -60,28 +60,6 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
     document.body.removeChild(a);
   };
 
-  const handleShare = async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: label || 'Audio',
-          text: 'Check out this audio',
-          url: url
-        });
-      } catch (err) {
-        console.error('Share failed:', err);
-      }
-    } else {
-      // Fallback to copy to clipboard
-      try {
-        await navigator.clipboard.writeText(url);
-        console.log('Link copied to clipboard');
-      } catch (err) {
-        console.error('Copy failed:', err);
-      }
-    }
-  };
-
   return (
     <div className="space-y-4">
       <audio
@@ -132,13 +110,6 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
             title="Download"
           >
             <Download className="w-5 h-5" />
-          </button>
-          <button
-            onClick={handleShare}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            title="Share"
-          >
-            <Share2 className="w-5 h-5" />
           </button>
         </div>
       </div>
