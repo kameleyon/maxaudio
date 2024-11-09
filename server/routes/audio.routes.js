@@ -1,6 +1,13 @@
 import { Router } from "express";
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { config as dotenvConfig } from 'dotenv';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenvConfig();
 
 export const audioRoutes = Router();
@@ -19,6 +26,7 @@ audioRoutes.post("/generate", async (req, res) => {
     languageCode = "en-US",
     voiceName = "en-US-Standard-A",
     speakingRate = 1.0,
+    fileName
   } = req.body;
   
   const request = {
@@ -37,7 +45,13 @@ audioRoutes.post("/generate", async (req, res) => {
     // Generate the TTS audio
     const [response] = await client.synthesizeSpeech(request);
     
-    // Stream audio directly like the working local version
+    // Save the generated audio to a file
+    const audioFileName = fileName || `audio_${Date.now()}`;
+    const filePath = path.join(__dirname, '..', 'audios', `${audioFileName}.mp3`);
+    fs.writeFileSync(filePath, response.audioContent);
+    console.log('Audio saved to:', filePath);
+    
+    // Stream audio directly
     res.set('Content-Type', 'audio/mpeg');
     res.send(response.audioContent);
   } catch (error) {

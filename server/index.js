@@ -28,13 +28,22 @@ app.use(cors({
   credentials: true
 }));
 
-app.use(express.json());
+// Body parser middleware
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Create audios directory if it doesn't exist
+const audiosDir = path.join(__dirname, 'audios');
+if (!fs.existsSync(audiosDir)) {
+  fs.mkdirSync(audiosDir, { recursive: true });
+}
 
 // Serve generated static audio files
 app.use('/audios', express.static(path.join(__dirname, 'audios')));
 
 // Test Google Cloud credentials on startup
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import fs from 'fs';
 
 const client = new TextToSpeechClient({
   credentials: {
@@ -70,4 +79,5 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`Serving audio files from: ${audiosDir}`);
 });

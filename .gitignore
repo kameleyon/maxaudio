@@ -39,3 +39,10 @@ Thumbs.db
 # Sensitive configuration
 *.pem
 *.key
+google-credentials.json
+**/google-credentials.json
+
+# Generated audio files
+server/audios/
+**/server/audios/
+*.mp3

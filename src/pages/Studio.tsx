@@ -17,6 +17,7 @@ interface AudioGenerateParams {
   text: string;
   languageCode: 'en-GB' | 'en-US';
   voiceName: string;
+  fileName: string;
 }
 
 export function Studio() {
@@ -36,6 +37,7 @@ export function Studio() {
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [publishSuccessMessage, setPublishSuccessMessage] = useState<string | null>(null);
 
   const generateFileName = (text: string) => {
     const date = new Date();
@@ -80,10 +82,12 @@ export function Studio() {
   const generateAudio = async (textContent: string) => {
     setIsGeneratingAudio(true);
     try {
+      const fileName = generateFileName(textContent);
       const params: AudioGenerateParams = {
         text: textContent,
         languageCode: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
-        voiceName: settings.voice
+        voiceName: settings.voice,
+        fileName
       };
 
       const response = await fetch('/api/audio/generate', {
@@ -112,6 +116,16 @@ export function Studio() {
     setShowPublishConfirm(true);
   };
 
+  const handlePublishConfirm = () => {
+    setShowPublishConfirm(false);
+    setPublishSuccessMessage('Content published successfully!');
+    
+    // Hide the success message after a short delay
+    setTimeout(() => {
+      setPublishSuccessMessage(null);
+    }, 5000);
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
       {/* Header with Workflow */}
@@ -120,15 +134,8 @@ export function Studio() {
         <div className="p-3 bg-white/5 rounded-lg border border-white/10 overflow-x-auto">
           <div className="flex items-center justify-between text-sm text-white/60 whitespace-nowrap">
             <div className="flex items-center gap-2">
-              <span>Upload/Write</span>
-              <span>➞</span>
-              <span>Configure</span>
-              <span>➞</span>
-              <span>Generate</span>
-              <span>➞</span>
-              <span>Edit</span>
-              <span>➞</span>
-              <span>Publish</span>
+              <p className="whitespace-normal">How does it work? Begin with content creation - whether uploading existing material or writing new text. Then customize your settings to match your specific requirements. After generating your output, review and refine it to ensure quality and accuracy. When satisfied, proceed to publication. This streamlined workflow guides you from initial concept to final delivery.</p>
+              
             </div>
           </div>
         </div>
@@ -137,6 +144,13 @@ export function Studio() {
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
           {error}
+        </div>
+      )}
+
+      {/* Publish Success Message */}
+      {publishSuccessMessage && (
+        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400">
+          {publishSuccessMessage}
         </div>
       )}
 
@@ -161,7 +175,8 @@ export function Studio() {
           >
             {isGenerating ? (
               <div className="flex items-center justify-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin" />
+                
+                {/*<Loader2 className="w-5 h-5 animate-spin" />*/}
                 <span>Generating Content...</span>
               </div>
             ) : (
@@ -171,24 +186,22 @@ export function Studio() {
         </div>
 
         {/* Right Side - Transcript */}
-        <div className="h-full">
+        <div className="h-full overflow-y-auto bg-white/5 rounded-lg border border-white/10">
           {isGenerating ? (
-            <div className="h-full flex items-center justify-center bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center justify-center h-full">
               <div className="flex flex-col items-center gap-2 text-white/60">
                 <Loader2 className="w-8 h-8 animate-spin" />
-                <span>Generating content with Llama 2...</span>
+                <span>Generating your content...</span>
               </div>
             </div>
           ) : transcript ? (
-            <div className="h-full">
-              <TranscriptEditor
-                transcript={transcript}
-                onChange={setTranscript}
-                onRegenerate={generateAudio}
-              />
-            </div>
+            <TranscriptEditor
+              transcript={transcript}
+              onChange={setTranscript}
+              onRegenerate={generateAudio}
+            />
           ) : (
-            <div className="h-full flex items-center justify-center bg-white/5 rounded-lg border border-white/10">
+            <div className="flex items-center justify-center h-full">
               <p className="text-white/60">
                 Generated content will appear here
               </p>
@@ -228,10 +241,7 @@ export function Studio() {
       {/* Publish Confirmation Dialog */}
       {showPublishConfirm && (
         <PublishConfirmation
-          onConfirm={() => {
-            // TODO: Handle publish
-            setShowPublishConfirm(false);
-          }}
+          onConfirm={handlePublishConfirm}
           onCancel={() => setShowPublishConfirm(false)}
         />
       )}
