@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { Play, Pause, RotateCcw, Download, Share2 } from 'lucide-react';
+import { Play, Pause, Download, Share2 } from 'lucide-react';
 
 interface AudioPlayerProps {
   url: string;
@@ -9,7 +9,19 @@ interface AudioPlayerProps {
 export function AudioPlayer({ url, label }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [duration, setDuration] = useState<string>('00:00');
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const formatTime = (seconds: number): string => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = Math.floor(seconds % 60);
+
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
 
   const togglePlay = () => {
     if (audioRef.current) {
@@ -26,6 +38,7 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
     if (audioRef.current) {
       const progress = (audioRef.current.currentTime / audioRef.current.duration) * 100;
       setProgress(progress);
+      setDuration(formatTime(audioRef.current.duration));
     }
   };
 
@@ -75,6 +88,7 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
         ref={audioRef}
         src={url}
         onTimeUpdate={handleTimeUpdate}
+        onLoadedMetadata={handleTimeUpdate}
         onEnded={() => setIsPlaying(false)}
         className="hidden"
       />
@@ -109,13 +123,9 @@ export function AudioPlayer({ url, label }: AudioPlayerProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => audioRef.current?.load()}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            title="Restart"
-          >
-            <RotateCcw className="w-5 h-5" />
-          </button>
+          <span className="text-sm text-white/80 min-w-[60px] text-right">
+            {duration}
+          </span>
           <button
             onClick={handleDownload}
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
