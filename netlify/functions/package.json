@@ -1,0 +1,8 @@
+{
+  "name": "audiomax-netlify-functions",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@google-cloud/text-to-speech": "^5.5.0"
+  }
+}

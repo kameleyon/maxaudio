@@ -5,6 +5,7 @@ import { ContentSettings, ContentSettingsType } from '../components/studio/Conte
 import { TranscriptEditor } from '../components/studio/TranscriptEditor';
 import { AudioPlayer } from '../components/studio/AudioPlayer';
 import { PublishConfirmation } from '../components/studio/PublishConfirmation';
+import { AudioGeneratorTest } from '../components/studio/AudioGeneratorTest';
 import { generateContent } from '../services/openrouter';
 
 interface GenerateContentParams {
@@ -38,6 +39,7 @@ export function Studio() {
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishSuccessMessage, setPublishSuccessMessage] = useState<string | null>(null);
+  const [showTestComponent, setShowTestComponent] = useState(false);
 
   const generateFileName = (text: string) => {
     const date = new Date();
@@ -130,16 +132,28 @@ export function Studio() {
     <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
       {/* Header with Workflow */}
       <div>
-        <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
+        <div className="flex justify-between items-center">
+          <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
+          <button
+            onClick={() => setShowTestComponent(!showTestComponent)}
+            className="px-3 py-1 text-sm bg-[#63248d]/50 hover:bg-[#63248d]/80 rounded transition-colors"
+          >
+            {showTestComponent ? 'Hide Test' : 'Show Test'}
+          </button>
+        </div>
         <div className="p-3 bg-white/5 rounded-lg border border-white/10 overflow-x-auto">
           <div className="flex items-center justify-between text-sm text-white/60 whitespace-nowrap">
             <div className="flex items-center gap-2">
               <p className="whitespace-normal">How does it work? Begin with content creation - whether uploading existing material or writing new text. Then customize your settings to match your specific requirements. After generating your output, review and refine it to ensure quality and accuracy. When satisfied, proceed to publication. This streamlined workflow guides you from initial concept to final delivery.</p>
-              
             </div>
           </div>
         </div>
       </div>
+
+      {/* Test Component */}
+      {showTestComponent && (
+        <AudioGeneratorTest />
+      )}
 
       {error && (
         <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
@@ -175,8 +189,6 @@ export function Studio() {
           >
             {isGenerating ? (
               <div className="flex items-center justify-center gap-2">
-                
-                {/*<Loader2 className="w-5 h-5 animate-spin" />*/}
                 <span>Generating Content...</span>
               </div>
             ) : (
