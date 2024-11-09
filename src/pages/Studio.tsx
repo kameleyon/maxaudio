@@ -21,6 +21,14 @@ interface AudioGenerateParams {
   fileName: string;
 }
 
+// Get the correct audio endpoint based on environment
+const getAudioEndpoint = () => {
+  if (import.meta.env.PROD) {
+    return '/.netlify/functions/generateAudio';
+  }
+  return '/api/audio/generate';
+};
+
 export function Studio() {
   // Content state
   const [content, setContent] = useState('');
@@ -92,7 +100,7 @@ export function Studio() {
         fileName
       };
 
-      const response = await fetch('/api/audio/generate', {
+      const response = await fetch(getAudioEndpoint(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),

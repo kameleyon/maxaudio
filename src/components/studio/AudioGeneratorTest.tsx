@@ -1,5 +1,13 @@
 import { useState } from 'react';
 
+// Get the correct audio endpoint based on environment
+const getAudioEndpoint = () => {
+  if (import.meta.env.PROD) {
+    return '/.netlify/functions/generateAudio';
+  }
+  return '/api/audio/generate';
+};
+
 export function AudioGeneratorTest() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -12,7 +20,7 @@ export function AudioGeneratorTest() {
     const testText = "This is a test of the audio generation function. If you can hear this, the Netlify Function is working correctly.";
     
     try {
-      const response = await fetch('/.netlify/functions/generateAudio', {
+      const response = await fetch(getAudioEndpoint(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
