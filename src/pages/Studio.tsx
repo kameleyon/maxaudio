@@ -37,6 +37,23 @@ export function Studio() {
   const [showPublishConfirm, setShowPublishConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const generateFileName = (text: string) => {
+    const date = new Date();
+    const dateStr = date.toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).replace(/\//g, '');
+
+    // Clean and truncate the text
+    const cleanText = text
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, '') // Remove special characters
+      .slice(0, 20); // Take first 20 characters
+
+    return `${cleanText}${dateStr}`;
+  };
+
   const handleGenerate = async () => {
     setIsGenerating(true);
     setError(null);
@@ -199,7 +216,10 @@ export function Studio() {
                   Publish
                 </button>
               </div>
-              <AudioPlayer url={audioUrl} />
+              <AudioPlayer 
+                url={audioUrl} 
+                label={generateFileName(transcript)}
+              />
             </div>
           ) : null}
         </div>

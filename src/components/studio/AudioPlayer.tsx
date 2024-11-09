@@ -3,9 +3,10 @@ import { Play, Pause, RotateCcw, Download, Share2 } from 'lucide-react';
 
 interface AudioPlayerProps {
   url: string;
+  label?: string;
 }
 
-export function AudioPlayer({ url }: AudioPlayerProps) {
+export function AudioPlayer({ url, label }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -47,10 +48,16 @@ export function AudioPlayer({ url }: AudioPlayerProps) {
         className="hidden"
       />
 
+      {label && (
+        <div className="text-sm text-white/80">
+          {label}
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <button
           onClick={togglePlay}
-          className="p-3 bg-primary hover:bg-primary/80 rounded-full transition-colors"
+          className="p-3 bg-[#63248d] hover:bg-[#63248d]/80 rounded-full transition-colors"
         >
           {isPlaying ? (
             <Pause className="w-6 h-6" />
