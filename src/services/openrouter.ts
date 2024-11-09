@@ -1,6 +1,5 @@
 import axios from 'axios';
 
-const OPENROUTER_API_KEY = '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';
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 interface GenerateContentParams {
@@ -49,6 +48,10 @@ Guidelines for expansion:
 
 Transform the content into an engaging, in-depth presentation while maintaining its core message and purpose.`;
 
+    if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
+      throw new Error('OpenRouter API key not configured');
+    }
+
     const response = await axios.post(
       API_URL,
       {
@@ -68,8 +71,8 @@ Transform the content into an engaging, in-depth presentation while maintaining 
       },
       {
         headers: {
-          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-          'HTTP-Referer': 'https://stackblitz.com',
+          'Authorization': `Bearer ${import.meta.env.VITE_OPENROUTER_API_KEY}`,
+          'HTTP-Referer': window.location.origin,
           'X-Title': 'AUDIOMAX Studio',
           'Content-Type': 'application/json'
         }
@@ -83,6 +86,9 @@ Transform the content into an engaging, in-depth presentation while maintaining 
     return response.data.choices[0].message.content;
   } catch (error) {
     console.error('OpenRouter API Error:', error);
+    if (axios.isAxiosError(error) && error.response?.status === 402) {
+      throw new Error('OpenRouter API key has expired or reached its limit. Please check your API key.');
+    }
     throw new Error('Failed to generate content. Please try again.');
   }
 }
