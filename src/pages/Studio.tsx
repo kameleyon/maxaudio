@@ -96,12 +96,12 @@ export function Studio() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
       {/* Header with Workflow */}
       <div>
-        <h1 className="text-3xl font-bold mb-4">Studio</h1>
-        <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-          <div className="flex items-center justify-between text-sm text-white/60">
+        <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
+        <div className="p-3 bg-white/5 rounded-lg border border-white/10 overflow-x-auto">
+          <div className="flex items-center justify-between text-sm text-white/60 whitespace-nowrap">
             <div className="flex items-center gap-2">
               <span>Upload/Write</span>
               <span>➞</span>
@@ -124,7 +124,7 @@ export function Studio() {
       )}
 
       {/* Main Content Area */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Left Side - Input and Settings */}
         <div className="space-y-4">
           <ContentInput 
@@ -140,7 +140,7 @@ export function Studio() {
           <button
             onClick={handleGenerate}
             disabled={!content || isGenerating}
-            className="w-full px-6 py-3 bg-primary hover:bg-primary/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-6 py-3 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGenerating ? (
               <div className="flex items-center justify-center gap-2">
@@ -194,7 +194,7 @@ export function Studio() {
                 <h2 className="text-lg font-semibold">Generated Audio</h2>
                 <button
                   onClick={handlePublish}
-                  className="px-4 py-2 bg-green-500 hover:bg-green-600 rounded-lg transition-colors"
+                  className="px-4 py-2 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors"
                 >
                   Publish
                 </button>

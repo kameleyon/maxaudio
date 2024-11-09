@@ -16,7 +16,8 @@ import {
   ChevronRight,
   ChevronLeft,
   Headphones,
-  Shield
+  Shield,
+  Menu
 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
 
@@ -33,8 +34,9 @@ export function Sidebar() {
 
   useEffect(() => {
     const handleResize = () => {
-      setIsMobile(window.innerWidth < 768)
-      if (window.innerWidth >= 768) {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (!mobile) {
         setIsExpanded(false)
       }
     }
@@ -67,74 +69,90 @@ export function Sidebar() {
     ...(isAdmin ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : [])
   ]
 
-  return (
-    <div
-      className={`fixed left-0 top-16 h-[calc(100vh-4rem)] z-20 bg-[#0f0035]/50 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
-        isExpanded ? 'w-52' : 'w-0 md:w-16'
+  const toggleButton = (
+    <button
+      className={`absolute ${isMobile ? 'top-0 -right-10' : '-right-3 top-6'} bg-[#63248d] rounded-full p-1.5 text-white transition-all duration-300 ${
+        isMobile && !isExpanded ? 'opacity-100' : isMobile ? 'opacity-0' : 'opacity-100'
       }`}
-      onMouseEnter={() => !isMobile && setIsExpanded(true)}
-      onMouseLeave={() => !isMobile && setIsExpanded(false)}
+      onClick={() => setIsExpanded(!isExpanded)}
     >
-      <button
-        className={`absolute ${isMobile ? 'top-0 -right-10' : '-right-3 top-6'} bg-primary rounded-full p-1.5 text-white transition-all duration-300 ${
-          isMobile && !isExpanded ? 'opacity-100' : isMobile ? 'opacity-0' : 'opacity-100'
+      {isExpanded ? (
+        <ChevronLeft className="w-4 h-4" />
+      ) : (
+        <Menu className="w-4 h-4" />
+      )}
+    </button>
+  )
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {isMobile && isExpanded && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-40 top-32   "
+          onClick={() => setIsExpanded(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`fixed left-0  mt-4 top-12 h-[calc(100vh-4rem)] z-40 bg-[#0f0035]/90 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
+          isExpanded ? 'w-52' : isMobile ? 'w-0' : 'w-16'
         }`}
-        onClick={() => setIsExpanded(!isExpanded)}
+        onMouseEnter={() => !isMobile && setIsExpanded(true)}
+        onMouseLeave={() => !isMobile && setIsExpanded(false)}
       >
-        {isExpanded ? (
-          <ChevronLeft className="w-4 h-4" />
-        ) : (
-          <ChevronRight className="w-4 h-4" />
-        )}
-      </button>
+        {toggleButton}
 
-      <div className={`py-4 flex flex-col h-full ${!isExpanded && isMobile ? 'hidden' : ''}`}>
-        <nav className="flex-1">
-          <ul className="space-y-2">
-            {menuItems.map((item) => (
-              <li key={item.path}>
-                <Link
-                  to={item.path}
-                  className={`flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors ${
-                    location.pathname === item.path ? 'bg-white/10 text-white' : ''
-                  }`}
-                >
-                  <item.icon className="w-6 h-6" />
-                  {isExpanded && (
-                    <span className="ml-4">{item.label}</span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </nav>
+        <div className={`py-4 flex flex-col h-full ${!isExpanded && isMobile ? 'hidden' : ''}`}>
+          <nav className="flex-1">
+            <ul className="space-y-2">
+              {menuItems.map((item) => (
+                <li key={item.path}>
+                  <Link
+                    to={item.path}
+                    className={`flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors ${
+                      location.pathname === item.path ? 'bg-white/10 text-white' : ''
+                    }`}
+                    onClick={() => isMobile && setIsExpanded(false)}
+                  >
+                    <item.icon className="w-6 h-6" />
+                    {isExpanded && (
+                      <span className="ml-4">{item.label}</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </nav>
 
-        <div className="border-t border-white/10 pt-4 space-y-2">
-          <button
-            onClick={toggleTheme}
-            className="w-full flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors"
-          >
-            {theme === 'dark' ? (
-              <Sun className="w-6 h-6" />
-            ) : (
-              <Moon className="w-6 h-6" />
-            )}
-            {isExpanded && (
-              <span className="ml-4">Theme</span>
-            )}
-          </button>
+          <div className="border-t border-white/10 pt-4 space-y-2">
+            <button
+              onClick={toggleTheme}
+              className="w-full flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-6 h-6" />
+              ) : (
+                <Moon className="w-6 h-6" />
+              )}
+              {isExpanded && (
+                <span className="ml-4">Theme</span>
+              )}
+            </button>
 
-          <button
-            onClick={handleSignOut}
-            className="w-full flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <LogOut className="w-6 h-6" />
-            {isExpanded && (
-              <span className="ml-4">Logout</span>
-            )}
-          </button>
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <LogOut className="w-6 h-6" />
+              {isExpanded && (
+                <span className="ml-4">Logout</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

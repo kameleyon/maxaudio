@@ -20,7 +20,7 @@ export function SignUp() {
         <img 
           src="/audiomax.png" 
           alt="AudioMax Logo" 
-          className="w-[300px] md:w-[400px] mx-auto md:mx-0 mb-8"
+          className="w-[400px] md:w-[400px] mx-auto md:mx-0 mb-8"
         />
         <h1 className="text-3xl md:text-5xl font-bold mb-4 md:mb-6 bg-gradient-to-r from-primary via-secondary to-accent text-transparent bg-clip-text animate-gradient">
           Join AUDIOMAX Today

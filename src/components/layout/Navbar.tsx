@@ -11,13 +11,8 @@ export function Navbar() {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-[#0f0035]/50 backdrop-blur-sm border-b border-white/10">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center">
-            <img 
-              src="/audiomax.png" 
-              alt="AudioMax" 
-              className="h-8 md:hidden" // Only show in mobile
-            />
-            <span className="text-xl font-bold hidden md:block">AUDIOMAX</span>
+          <Link to="/" className="text-2xl md:text-3xl font-bold font-montserrat text-white ml-8 md:ml-0">
+            AUDIOMAX
           </Link>
           
           <div className="flex items-center gap-4">
