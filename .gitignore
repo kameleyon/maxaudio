@@ -39,3 +39,4 @@ Thumbs.db
 # Sensitive configuration
 *.pem
 *.key
+server/google-credentials.json
