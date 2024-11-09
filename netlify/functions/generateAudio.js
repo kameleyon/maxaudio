@@ -3,84 +3,58 @@ import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 // Initialize Text-to-Speech client with proper credential handling
 function initializeTextToSpeechClient() {
   if (!process.env.GOOGLE_CREDENTIALS) {
+    console.error('Google credentials not found in environment');
     throw new Error('Google credentials not configured');
   }
 
   try {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    // Parse and validate credentials
+    let credentials;
+    try {
+      // First unescape any double-escaped characters
+      const rawCreds = process.env.GOOGLE_CREDENTIALS
+        .replace(/\\\\n/g, '\\n')  // Fix double-escaped newlines
+        .replace(/\\\"/g, '"');    // Fix double-escaped quotes
+      
+      credentials = JSON.parse(rawCreds);
+      console.log('Successfully parsed credentials');
+    } catch (e) {
+      console.error('Failed to parse Google credentials:', e);
+      throw new Error('Invalid Google credentials format');
+    }
+
+    // Log credential structure (without sensitive data)
+    console.log('Credential fields present:', Object.keys(credentials));
     
     // Validate required fields
     if (!credentials.client_email) {
-      throw new Error('The incoming JSON object does not contain a client_email field');
+      console.error('Missing client_email in credentials');
+      throw new Error('Missing client_email in Google credentials');
     }
     if (!credentials.private_key) {
-      throw new Error('The incoming JSON object does not contain a private_key field');
+      console.error('Missing private_key in credentials');
+      throw new Error('Missing private_key in Google credentials');
     }
+
+    // Handle escaped private key
+    const privateKey = credentials.private_key
+      .replace(/\\n/g, '\n')  // Replace literal \n with newlines
+      .replace(/["']/g, '');  // Remove any quotes
 
     return new TextToSpeechClient({
       credentials: {
         client_email: credentials.client_email,
-        private_key: credentials.private_key,
+        private_key: privateKey,
         project_id: credentials.project_id
       }
     });
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      throw new Error('Invalid Google credentials JSON format');
-    }
+    console.error('Failed to initialize Google client:', error);
     throw error;
   }
 }
 
-// Split text into chunks of approximately 4000 bytes
-function splitTextIntoChunks(text) {
-  const chunks = [];
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  let currentChunk = '';
-
-  for (const sentence of sentences) {
-    if ((currentChunk + sentence).length > 4000) {
-      if (currentChunk) {
-        chunks.push(currentChunk.trim());
-      }
-      currentChunk = sentence;
-    } else {
-      currentChunk += (currentChunk ? ' ' : '') + sentence;
-    }
-  }
-
-  if (currentChunk) {
-    chunks.push(currentChunk.trim());
-  }
-
-  return chunks;
-}
-
-// Enhance text for more natural speech flow
-function enhanceTextForSpeech(text) {
-  return text
-    .replace(/\. /g, '... ')
-    .replace(/\? /g, '... ')
-    .replace(/! /g, '... ')
-    .replace(/\s+/g, ' ')
-    .replace(/\.{4,}/g, '...')
-    .trim();
-}
-
-// Combine multiple audio buffers
-function combineAudioBuffers(buffers) {
-  const totalLength = buffers.reduce((acc, buffer) => acc + buffer.length, 0);
-  const combined = Buffer.alloc(totalLength);
-  let offset = 0;
-  
-  for (const buffer of buffers) {
-    buffer.copy(combined, offset);
-    offset += buffer.length;
-  }
-  
-  return combined;
-}
-
+// Rest of the code remains the same...
 export async function handler(event, context) {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
@@ -103,48 +77,44 @@ export async function handler(event, context) {
       };
     }
 
-    // Enhance and split text
-    const enhancedText = enhanceTextForSpeech(text);
-    const chunks = splitTextIntoChunks(enhancedText);
-    
-    // Generate audio for each chunk
-    const audioBuffers = [];
-    for (const chunk of chunks) {
-      const request = {
-        input: { text: chunk },
-        voice: {
-          languageCode,
-          name: voiceName,
-        },
-        audioConfig: {
-          audioEncoding: "MP3"
-        },
-      };
+    // Log request details (without sensitive data)
+    console.log('Processing request:', {
+      textLength: text.length,
+      languageCode,
+      voiceName
+    });
 
-      const [response] = await client.synthesizeSpeech(request);
-      if (!response || !response.audioContent) {
-        throw new Error('No audio content received from Google TTS');
-      }
-      
-      audioBuffers.push(response.audioContent);
+    const request = {
+      input: { text },
+      voice: {
+        languageCode,
+        name: voiceName,
+      },
+      audioConfig: {
+        audioEncoding: "MP3"
+      },
+    };
+
+    const [response] = await client.synthesizeSpeech(request);
+    if (!response || !response.audioContent) {
+      throw new Error('No audio content received from Google TTS');
     }
-    
-    // Combine all audio buffers
-    const combinedAudio = combineAudioBuffers(audioBuffers);
+
+    console.log('Successfully generated audio');
 
     // Return the audio as base64
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': combinedAudio.length.toString()
+        'Content-Length': response.audioContent.length.toString()
       },
-      body: combinedAudio.toString('base64'),
+      body: response.audioContent.toString('base64'),
       isBase64Encoded: true
     };
 
   } catch (error) {
-    console.error('Error generating audio:', error);
+    console.error('Error in generateAudio function:', error);
     return {
       statusCode: 500,
       body: JSON.stringify({
