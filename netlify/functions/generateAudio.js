@@ -1,12 +1,36 @@
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
-import { writeFileSync, mkdirSync } from 'fs';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
 
-// Initialize Text-to-Speech client
-const client = new TextToSpeechClient({
-  credentials: JSON.parse(process.env.GOOGLE_CREDENTIALS || '{}')
-});
+// Initialize Text-to-Speech client with proper credential handling
+function initializeTextToSpeechClient() {
+  if (!process.env.GOOGLE_CREDENTIALS) {
+    throw new Error('Google credentials not configured');
+  }
+
+  try {
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    
+    // Validate required fields
+    if (!credentials.client_email) {
+      throw new Error('The incoming JSON object does not contain a client_email field');
+    }
+    if (!credentials.private_key) {
+      throw new Error('The incoming JSON object does not contain a private_key field');
+    }
+
+    return new TextToSpeechClient({
+      credentials: {
+        client_email: credentials.client_email,
+        private_key: credentials.private_key,
+        project_id: credentials.project_id
+      }
+    });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new Error('Invalid Google credentials JSON format');
+    }
+    throw error;
+  }
+}
 
 // Split text into chunks of approximately 4000 bytes
 function splitTextIntoChunks(text) {
@@ -67,6 +91,9 @@ export async function handler(event, context) {
   }
 
   try {
+    // Initialize client with proper error handling
+    const client = initializeTextToSpeechClient();
+
     const { text, languageCode = "en-US", voiceName = "en-US-Studio-M" } = JSON.parse(event.body);
 
     if (!text) {
