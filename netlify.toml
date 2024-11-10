@@ -6,8 +6,10 @@
 [functions]
   node_bundler = "esbuild"
   external_node_modules = ["@google-cloud/text-to-speech"]
-  # Increase function timeout to 60 seconds
-  timeout = 60
+
+[functions.generateAudio]
+  included_files = ["**/*"]
+  timeout = "60s"
 
 [[redirects]]
   from = "/api/audio/generate"
