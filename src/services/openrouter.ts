@@ -55,7 +55,8 @@ Transform the content into an engaging, in-depth presentation while maintaining 
     const response = await axios.post(
       API_URL,
       {
-        model: 'anthropic/claude-2',
+        // IMPORTANT: Always use Llama 90B - DO NOT CHANGE THIS MODEL
+        model: 'meta-llama/llama-3.2-90b-vision-instruct',
         messages: [
           {
             role: 'system',
