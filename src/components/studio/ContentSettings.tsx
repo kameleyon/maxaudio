@@ -101,15 +101,29 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
 
   const selectClasses = `
     w-full px-4 py-2 
-    bg-white/10 backdrop-blur-sm 
-    border border-white/20 
+    bg-[#1a1a2e] 
+    border border-[#63248d]/30 
     rounded-lg 
-    text-white
-    focus:outline-none focus:border-[#9de9c7] focus:ring-1 focus:ring-[#9de9c7]
+    text-white/90
+    focus:outline-none 
+    focus:border-[#63248d] 
+    focus:ring-1 
+    focus:ring-[#63248d]
     appearance-none
-    [&>option]:bg-[#0f0035]
-    [&>option]:text-white
-    [&>option]:backdrop-blur-sm
+    hover:border-[#63248d]/60
+    transition-colors
+  `;
+
+  const optionClasses = `
+    bg-[#1a1a2e]
+    text-white/90
+    hover:bg-[#63248d]/20
+  `;
+
+  const optgroupClasses = `
+    bg-[#1a1a2e]
+    text-[#63248d]
+    font-semibold
   `;
 
   // Group voices by type for better organization
@@ -123,12 +137,12 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold">Settings</h2>
+      <h2 className="text-lg font-semibold text-white/90">Settings</h2>
       
       <div className="space-y-4">
         {/* Category Selection */}
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label className="block text-sm font-medium mb-2 text-white/80">
             Category
           </label>
           <select
@@ -137,7 +151,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
             className={selectClasses}
           >
             {categories.map((category) => (
-              <option key={category} value={category.toLowerCase()}>
+              <option key={category} value={category.toLowerCase()} className={optionClasses}>
                 {category}
               </option>
             ))}
@@ -146,7 +160,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
 
         {/* Tone Selection */}
         <div>
-          <label className="block text-sm font-medium mb-2">
+          <label className="block text-sm font-medium mb-2 text-white/80">
             Tone
           </label>
           <select
@@ -155,7 +169,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
             className={selectClasses}
           >
             {tones.map((tone) => (
-              <option key={tone} value={tone.toLowerCase()}>
+              <option key={tone} value={tone.toLowerCase()} className={optionClasses}>
                 {tone}
               </option>
             ))}
@@ -165,7 +179,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
         {/* Voice Selection */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium">Voice</label>
+            <label className="text-sm font-medium text-white/80">Voice</label>
             <Toggle
               value={settings.voiceType}
               onChange={handleVoiceTypeChange}
@@ -179,12 +193,33 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
           <select
             value={settings.voice}
             onChange={(e) => handleSettingChange('voice', e.target.value)}
-            className={selectClasses}
+            className={`${selectClasses} [&>optgroup]:${optgroupClasses}`}
+            style={{
+              background: '#1a1a2e',
+              color: 'rgba(255, 255, 255, 0.9)'
+            }}
           >
             {Object.entries(groupedVoices).map(([type, voices]) => (
-              <optgroup key={type} label={`${type} Voices`}>
+              <optgroup 
+                key={type} 
+                label={`${type} Voices`}
+                className={optgroupClasses}
+                style={{
+                  background: '#1a1a2e',
+                  color: '#63248d',
+                  fontWeight: '600'
+                }}
+              >
                 {voices.map((voice) => (
-                  <option key={voice.id} value={voice.id}>
+                  <option 
+                    key={voice.id} 
+                    value={voice.id} 
+                    className={optionClasses}
+                    style={{
+                      background: '#1a1a2e',
+                      color: 'rgba(255, 255, 255, 0.9)'
+                    }}
+                  >
                     {`${voice.flag} ${voice.name} (${voice.gender})`}
                   </option>
                 ))}
