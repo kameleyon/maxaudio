@@ -27,17 +27,17 @@ function initializeTextToSpeechClient() {
   }
 }
 
-// Split text into smaller chunks, being careful with sentence boundaries
+// Split text into smaller chunks efficiently
 function splitTextIntoChunks(text) {
-  const MAX_CHUNK_SIZE = 4000; // Leave room for overhead
+  const MAX_CHUNK_SIZE = 3000; // Smaller chunks for faster processing
   const chunks = [];
   
-  // First split by paragraphs to maintain structure
+  // Split by paragraphs first
   const paragraphs = text.split(/\n\n+/);
   let currentChunk = '';
   
   for (const paragraph of paragraphs) {
-    // If a single paragraph is too long, split it by sentences
+    // If paragraph is too long, split by sentences
     if (paragraph.length > MAX_CHUNK_SIZE) {
       const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
       for (const sentence of sentences) {
@@ -51,7 +51,6 @@ function splitTextIntoChunks(text) {
         }
       }
     } else {
-      // Check if adding this paragraph would exceed the limit
       if (currentChunk.length + paragraph.length > MAX_CHUNK_SIZE) {
         chunks.push(currentChunk.trim());
         currentChunk = paragraph;
@@ -61,24 +60,43 @@ function splitTextIntoChunks(text) {
     }
   }
   
-  // Add the last chunk if there is one
   if (currentChunk) {
     chunks.push(currentChunk.trim());
   }
-  
-  // Verify no chunk exceeds the limit
-  chunks.forEach((chunk, index) => {
-    if (chunk.length > 5000) {
-      console.warn(`Chunk ${index} is too long (${chunk.length} bytes), splitting further`);
-      const subChunks = chunk.match(/.{1,4000}/g) || [chunk];
-      chunks.splice(index, 1, ...subChunks);
-    }
-  });
 
   return chunks;
 }
 
-// Combine multiple audio buffers
+// Process chunks in parallel for better performance
+async function processChunksInParallel(chunks, client, voiceConfig) {
+  const chunkPromises = chunks.map(async (chunk, index) => {
+    console.log(`Processing chunk ${index + 1}/${chunks.length}, length: ${chunk.length}`);
+    
+    const request = {
+      input: { text: chunk },
+      voice: voiceConfig,
+      audioConfig: {
+        audioEncoding: "MP3",
+        speakingRate: 1.0  // Normal speed for better quality
+      },
+    };
+
+    try {
+      const [response] = await client.synthesizeSpeech(request);
+      if (!response || !response.audioContent) {
+        throw new Error(`No audio content received for chunk ${index + 1}`);
+      }
+      return response.audioContent;
+    } catch (error) {
+      console.error(`Error processing chunk ${index + 1}:`, error);
+      throw error;
+    }
+  });
+
+  return Promise.all(chunkPromises);
+}
+
+// Combine audio buffers efficiently
 function combineAudioBuffers(buffers) {
   const totalLength = buffers.reduce((acc, buffer) => acc + buffer.length, 0);
   const combined = Buffer.alloc(totalLength);
@@ -93,7 +111,6 @@ function combineAudioBuffers(buffers) {
 }
 
 export async function handler(event, context) {
-  // Only allow POST requests
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -102,6 +119,7 @@ export async function handler(event, context) {
   }
 
   try {
+    console.time('totalProcessing');
     const client = initializeTextToSpeechClient();
     const { text, languageCode = "en-US", voiceName = "en-US-Studio-M" } = JSON.parse(event.body);
 
@@ -113,39 +131,27 @@ export async function handler(event, context) {
     }
 
     console.log('Processing text of length:', text.length);
+    console.time('textProcessing');
     
-    // Split text into manageable chunks
     const chunks = splitTextIntoChunks(text);
     console.log('Split into', chunks.length, 'chunks');
-    
-    // Generate audio for each chunk
-    const audioBuffers = [];
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i];
-      console.log(`Processing chunk ${i + 1}/${chunks.length}, length: ${chunk.length}`);
-      
-      const request = {
-        input: { text: chunk },
-        voice: {
-          languageCode,
-          name: voiceName,
-        },
-        audioConfig: {
-          audioEncoding: "MP3"
-        },
-      };
+    console.timeEnd('textProcessing');
 
-      const [response] = await client.synthesizeSpeech(request);
-      if (!response || !response.audioContent) {
-        throw new Error(`No audio content received for chunk ${i + 1}`);
-      }
-      
-      audioBuffers.push(response.audioContent);
-    }
+    const voiceConfig = {
+      languageCode,
+      name: voiceName,
+    };
+
+    console.time('audioProcessing');
+    const audioBuffers = await processChunksInParallel(chunks, client, voiceConfig);
+    console.timeEnd('audioProcessing');
     
-    // Combine all audio buffers
+    console.time('combining');
     const combinedAudio = combineAudioBuffers(audioBuffers);
-    console.log('Successfully generated audio, total size:', combinedAudio.length);
+    console.log('Final audio size:', combinedAudio.length);
+    console.timeEnd('combining');
+    
+    console.timeEnd('totalProcessing');
 
     return {
       statusCode: 200,

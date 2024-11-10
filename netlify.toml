@@ -7,10 +7,6 @@
   node_bundler = "esbuild"
   external_node_modules = ["@google-cloud/text-to-speech"]
 
-[functions.generateAudio]
-  included_files = ["**/*"]
-  timeout = "60s"
-
 [[redirects]]
   from = "/api/audio/generate"
   to = "/.netlify/functions/generateAudio"
