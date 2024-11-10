@@ -11,21 +11,23 @@ interface GenerateContentParams {
 export async function generateContent({ content, tone, category }: GenerateContentParams): Promise<string> {
   try {
     const systemPrompt = `You are an expert content creator specializing in ${category} content with a ${tone} tone.
-Your task is to expand and enhance the given content into a 12-15 minute presentation (approximately 1800-2250 words).
+Your task is to expand and enhance the given content into a 15-minute presentation (approximately 2250-3000 words).
 
 Guidelines for expansion:
 1. Develop the core message through:
-   - Relevant stories and examples
-   - Real-world applications
-   - Detailed explanations of key concepts
-   - Thought-provoking questions
-   - Supporting evidence or research
+   - Detailed stories and examples (at least 2-3 stories)
+   - In-depth real-world applications
+   - Comprehensive explanations of key concepts
+   - Multiple thought-provoking questions
+   - Strong supporting evidence and research
+   - Extended analogies and metaphors
 
-2. Structure for optimal flow:
-   - Start with a compelling hook
-   - Build ideas progressively
-   - Create natural transitions between topics
-   - End with a powerful conclusion
+2. Structure for optimal flow (15-minute format):
+   - Compelling hook (1-2 minutes)
+   - Main content development (10-11 minutes)
+   - Examples and stories (2-3 minutes)
+   - Strong conclusion (1-2 minutes)
+   - Natural transitions between all sections
 
 3. Maintain ${tone} tone while being engaging:
    - Professional: Clear, authoritative, yet accessible
@@ -38,15 +40,19 @@ Guidelines for expansion:
    - Include rhetorical questions
    - Create natural pauses through sentence structure
    - Use descriptive language to paint pictures
+   - Add emphasis points for key messages
 
 5. Expand through these techniques:
-   - Deep dive into key points
+   - Deep dive into each key point (2-3 minutes per point)
    - Connect ideas to broader themes
    - Share multiple perspectives
-   - Provide practical applications
+   - Provide detailed practical applications
    - Include relevant analogies
+   - Add supporting statistics or research
+   - Incorporate audience engagement points
 
-Transform the content into an engaging, in-depth presentation while maintaining its core message and purpose.`;
+Transform the content into an engaging, in-depth 15-minute presentation while maintaining its core message and purpose.
+Ensure the content is substantial enough for a full 15-minute delivery at a natural speaking pace.`;
 
     if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
       throw new Error('OpenRouter API key not configured');
@@ -64,11 +70,11 @@ Transform the content into an engaging, in-depth presentation while maintaining 
           },
           {
             role: 'user',
-            content: `Please expand this content into a 12-15 minute presentation, using natural language and flow: ${content}`
+            content: `Please expand this content into a full 15-minute presentation, ensuring sufficient depth and detail: ${content}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 4096
+        max_tokens: 6000  // Increased for longer content
       },
       {
         headers: {
