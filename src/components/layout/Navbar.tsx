@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { UserButton, useUser } from '@clerk/clerk-react'
 import { useTheme } from '../../contexts/ThemeContext'
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'
+import { NotificationBadge } from '../notifications/NotificationBadge'
 
 export function Navbar() {
   const { theme, toggleTheme } = useTheme()
@@ -27,6 +28,14 @@ export function Navbar() {
                 <MoonIcon className="w-5 h-5" />
               )}
             </button>
+
+            {/* Only show notifications for signed-in users */}
+            {isSignedIn && (
+              <div className="p-2 rounded-full hover:bg-white/10 transition">
+                <NotificationBadge />
+              </div>
+            )}
+
             {isSignedIn && <UserButton afterSignOutUrl="/" />}
           </div>
         </div>

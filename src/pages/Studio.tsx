@@ -35,7 +35,7 @@ export function Studio() {
     category: 'podcast',
     tone: 'professional',
     voiceType: 'library',
-    voice: 'en-US-Journey-D'
+    voice: 'en-US-Neural2-C'  // Default to Luna (Female US voice)
   });
 
   // Generation state

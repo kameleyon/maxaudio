@@ -4,6 +4,7 @@ import { SubscriptionPanel } from '../components/settings/SubscriptionPanel'
 import { BillingPanel } from '../components/settings/BillingPanel'
 import { TokenUsagePanel } from '../components/settings/TokenUsagePanel'
 import { PreferencesPanel } from '../components/settings/PreferencesPanel'
+import { NotificationPreferencesPanel } from '../components/settings/NotificationPreferencesPanel'
 
 export function Settings() {
   const [activeTab, setActiveTab] = useState('subscription')
@@ -12,6 +13,7 @@ export function Settings() {
     { id: 'subscription', label: 'Subscription' },
     { id: 'billing', label: 'Billing' },
     { id: 'tokens', label: 'Token Usage' },
+    { id: 'notifications', label: 'Notifications' },
     { id: 'preferences', label: 'Preferences' }
   ]
 
@@ -27,6 +29,7 @@ export function Settings() {
           {activeTab === 'subscription' && <SubscriptionPanel />}
           {activeTab === 'billing' && <BillingPanel />}
           {activeTab === 'tokens' && <TokenUsagePanel />}
+          {activeTab === 'notifications' && <NotificationPreferencesPanel />}
           {activeTab === 'preferences' && <PreferencesPanel />}
         </div>
       </div>
