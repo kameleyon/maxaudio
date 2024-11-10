@@ -16,15 +16,28 @@
   force = true
 
 [[redirects]]
+  from = "/favicon.ico"
+  to = "/favicon.ico"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
 
-# Copy favicon to root of site
-[[plugins]]
-package = "@netlify/plugin-local-install-core"
+[build.processing]
+  skip_processing = false
 
-[[plugins.inputs]]
-copy = [
-  { from = "public/favicon.ico", to = "build/favicon.ico" }
-]
+[build.processing.css]
+  bundle = true
+  minify = true
+
+[build.processing.js]
+  bundle = true
+  minify = true
+
+[build.processing.html]
+  pretty_urls = true
+
+[build.processing.images]
+  compress = true
