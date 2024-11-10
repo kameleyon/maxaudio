@@ -8,43 +8,16 @@ function initializeTextToSpeechClient() {
   }
 
   try {
-    // Parse and validate credentials
-    let credentials;
-    try {
-      // First unescape any double-escaped characters
-      const rawCreds = process.env.GOOGLE_CREDENTIALS
-        .replace(/\\\\n/g, '\\n')  // Fix double-escaped newlines
-        .replace(/\\\"/g, '"');    // Fix double-escaped quotes
-      
-      credentials = JSON.parse(rawCreds);
-      console.log('Successfully parsed credentials');
-    } catch (e) {
-      console.error('Failed to parse Google credentials:', e);
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    
+    if (!credentials.client_email || !credentials.private_key) {
       throw new Error('Invalid Google credentials format');
     }
-
-    // Log credential structure (without sensitive data)
-    console.log('Credential fields present:', Object.keys(credentials));
-    
-    // Validate required fields
-    if (!credentials.client_email) {
-      console.error('Missing client_email in credentials');
-      throw new Error('Missing client_email in Google credentials');
-    }
-    if (!credentials.private_key) {
-      console.error('Missing private_key in credentials');
-      throw new Error('Missing private_key in Google credentials');
-    }
-
-    // Handle escaped private key
-    const privateKey = credentials.private_key
-      .replace(/\\n/g, '\n')  // Replace literal \n with newlines
-      .replace(/["']/g, '');  // Remove any quotes
 
     return new TextToSpeechClient({
       credentials: {
         client_email: credentials.client_email,
-        private_key: privateKey,
+        private_key: credentials.private_key.replace(/\\n/g, '\n'),
         project_id: credentials.project_id
       }
     });
@@ -54,7 +27,71 @@ function initializeTextToSpeechClient() {
   }
 }
 
-// Rest of the code remains the same...
+// Split text into smaller chunks, being careful with sentence boundaries
+function splitTextIntoChunks(text) {
+  const MAX_CHUNK_SIZE = 4000; // Leave room for overhead
+  const chunks = [];
+  
+  // First split by paragraphs to maintain structure
+  const paragraphs = text.split(/\n\n+/);
+  let currentChunk = '';
+  
+  for (const paragraph of paragraphs) {
+    // If a single paragraph is too long, split it by sentences
+    if (paragraph.length > MAX_CHUNK_SIZE) {
+      const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
+      for (const sentence of sentences) {
+        if (currentChunk.length + sentence.length > MAX_CHUNK_SIZE) {
+          if (currentChunk) {
+            chunks.push(currentChunk.trim());
+          }
+          currentChunk = sentence;
+        } else {
+          currentChunk += (currentChunk ? ' ' : '') + sentence;
+        }
+      }
+    } else {
+      // Check if adding this paragraph would exceed the limit
+      if (currentChunk.length + paragraph.length > MAX_CHUNK_SIZE) {
+        chunks.push(currentChunk.trim());
+        currentChunk = paragraph;
+      } else {
+        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
+      }
+    }
+  }
+  
+  // Add the last chunk if there is one
+  if (currentChunk) {
+    chunks.push(currentChunk.trim());
+  }
+  
+  // Verify no chunk exceeds the limit
+  chunks.forEach((chunk, index) => {
+    if (chunk.length > 5000) {
+      console.warn(`Chunk ${index} is too long (${chunk.length} bytes), splitting further`);
+      const subChunks = chunk.match(/.{1,4000}/g) || [chunk];
+      chunks.splice(index, 1, ...subChunks);
+    }
+  });
+
+  return chunks;
+}
+
+// Combine multiple audio buffers
+function combineAudioBuffers(buffers) {
+  const totalLength = buffers.reduce((acc, buffer) => acc + buffer.length, 0);
+  const combined = Buffer.alloc(totalLength);
+  let offset = 0;
+  
+  for (const buffer of buffers) {
+    buffer.copy(combined, offset);
+    offset += buffer.length;
+  }
+  
+  return combined;
+}
+
 export async function handler(event, context) {
   // Only allow POST requests
   if (event.httpMethod !== 'POST') {
@@ -65,9 +102,7 @@ export async function handler(event, context) {
   }
 
   try {
-    // Initialize client with proper error handling
     const client = initializeTextToSpeechClient();
-
     const { text, languageCode = "en-US", voiceName = "en-US-Studio-M" } = JSON.parse(event.body);
 
     if (!text) {
@@ -77,39 +112,48 @@ export async function handler(event, context) {
       };
     }
 
-    // Log request details (without sensitive data)
-    console.log('Processing request:', {
-      textLength: text.length,
-      languageCode,
-      voiceName
-    });
+    console.log('Processing text of length:', text.length);
+    
+    // Split text into manageable chunks
+    const chunks = splitTextIntoChunks(text);
+    console.log('Split into', chunks.length, 'chunks');
+    
+    // Generate audio for each chunk
+    const audioBuffers = [];
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i];
+      console.log(`Processing chunk ${i + 1}/${chunks.length}, length: ${chunk.length}`);
+      
+      const request = {
+        input: { text: chunk },
+        voice: {
+          languageCode,
+          name: voiceName,
+        },
+        audioConfig: {
+          audioEncoding: "MP3"
+        },
+      };
 
-    const request = {
-      input: { text },
-      voice: {
-        languageCode,
-        name: voiceName,
-      },
-      audioConfig: {
-        audioEncoding: "MP3"
-      },
-    };
-
-    const [response] = await client.synthesizeSpeech(request);
-    if (!response || !response.audioContent) {
-      throw new Error('No audio content received from Google TTS');
+      const [response] = await client.synthesizeSpeech(request);
+      if (!response || !response.audioContent) {
+        throw new Error(`No audio content received for chunk ${i + 1}`);
+      }
+      
+      audioBuffers.push(response.audioContent);
     }
+    
+    // Combine all audio buffers
+    const combinedAudio = combineAudioBuffers(audioBuffers);
+    console.log('Successfully generated audio, total size:', combinedAudio.length);
 
-    console.log('Successfully generated audio');
-
-    // Return the audio as base64
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': response.audioContent.length.toString()
+        'Content-Length': combinedAudio.length.toString()
       },
-      body: response.audioContent.toString('base64'),
+      body: combinedAudio.toString('base64'),
       isBase64Encoded: true
     };
 
