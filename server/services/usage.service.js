@@ -1,4 +1,4 @@
-import { clerkClient } from '@clerk/clerk-sdk-node';
+import clerk from '../config/clerk.js';
 import Stripe from 'stripe';
 
 const MAX_RETRY_ATTEMPTS = 3;
@@ -71,7 +71,7 @@ class UsageService {
   // Update user usage data
   async updateUserUsage(userId, usageData) {
     return this.retryOperation(async () => {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await clerk.users.getUser(userId);
       const currentUsage = user.publicMetadata.usage || {};
       
       const updatedUsage = {
@@ -80,7 +80,7 @@ class UsageService {
         lastUpdated: new Date().toISOString()
       };
 
-      await clerkClient.users.updateUser(userId, {
+      await clerk.users.updateUser(userId, {
         publicMetadata: {
           ...user.publicMetadata,
           usage: updatedUsage
@@ -105,7 +105,7 @@ class UsageService {
       const currentCount = this.usageCache.get(key) || 0;
       this.usageCache.set(key, currentCount + 1);
       
-      const user = await clerkClient.users.getUser(userId);
+      const user = await clerk.users.getUser(userId);
       const subscriptionId = user.publicMetadata.subscriptionId;
       
       if (!subscriptionId) {
@@ -141,7 +141,7 @@ class UsageService {
   // Track character usage with history
   async trackCharacters(userId, characterCount) {
     return this.retryOperation(async () => {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await clerk.users.getUser(userId);
       const currentUsage = Number(user.publicMetadata.charactersUsed || 0);
       const newUsage = currentUsage + characterCount;
 
@@ -179,7 +179,7 @@ class UsageService {
   // Track voice clone usage with history
   async trackVoiceClone(userId) {
     return this.retryOperation(async () => {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await clerk.users.getUser(userId);
       const currentClones = Number(user.publicMetadata.voiceClones || 0);
       const newCount = currentClones + 1;
 
@@ -217,7 +217,7 @@ class UsageService {
   // Reset monthly usage with history tracking
   async resetMonthlyUsage(userId) {
     return this.retryOperation(async () => {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await clerk.users.getUser(userId);
       const previousUsage = user.publicMetadata.usage || {};
       
       // Store previous usage in history before reset
@@ -286,7 +286,7 @@ class UsageService {
   // Get current usage statistics with trends
   async getUsageStats(userId) {
     return this.retryOperation(async () => {
-      const user = await clerkClient.users.getUser(userId);
+      const user = await clerk.users.getUser(userId);
       const subscriptionId = user.publicMetadata.subscriptionId;
       
       if (!subscriptionId) {

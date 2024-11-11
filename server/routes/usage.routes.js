@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { usageService } from '../services/usage.service.js';
+import { auth } from '../middleware/auth.js';
 import { verifySubscription } from '../middleware/stripe-webhook.js';
 
 const router = Router();
 
 // Get usage statistics
-router.get('/stats', verifySubscription, async (req, res) => {
+router.get('/stats', auth, verifySubscription, async (req, res) => {
   try {
     const userId = req.auth?.userId;
     if (!userId) {
@@ -21,7 +22,7 @@ router.get('/stats', verifySubscription, async (req, res) => {
 });
 
 // Track character usage
-router.post('/track/characters', verifySubscription, async (req, res) => {
+router.post('/track/characters', auth, verifySubscription, async (req, res) => {
   try {
     const userId = req.auth?.userId;
     const { characterCount } = req.body;
@@ -43,7 +44,7 @@ router.post('/track/characters', verifySubscription, async (req, res) => {
 });
 
 // Track voice clone usage
-router.post('/track/voice-clone', verifySubscription, async (req, res) => {
+router.post('/track/voice-clone', auth, verifySubscription, async (req, res) => {
   try {
     const userId = req.auth?.userId;
     if (!userId) {
@@ -59,7 +60,7 @@ router.post('/track/voice-clone', verifySubscription, async (req, res) => {
 });
 
 // Get usage trends
-router.get('/trends', verifySubscription, async (req, res) => {
+router.get('/trends', auth, verifySubscription, async (req, res) => {
   try {
     const userId = req.auth?.userId;
     if (!userId) {

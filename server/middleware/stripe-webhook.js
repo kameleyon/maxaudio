@@ -1,7 +1,6 @@
 import Stripe from 'stripe';
 import { buffer } from 'micro';
-import { clerkClient } from '@clerk/clerk-sdk-node';
-import { updateUserUsage } from '../services/usage.service.js';
+import clerk from '../config/clerk.js';
 
 // Initialize Stripe with a function to ensure environment variables are loaded
 function getStripe() {
@@ -17,7 +16,7 @@ const RETRY_DELAY_MS = 1000;
 // Helper function to update user metadata
 async function updateUserSubscription(userId, subscriptionData) {
   try {
-    await clerkClient.users.updateUser(userId, {
+    await clerk.users.updateUser(userId, {
       publicMetadata: {
         subscriptionId: subscriptionData.id,
         subscriptionStatus: subscriptionData.status,
@@ -61,12 +60,12 @@ async function handleSubscriptionChange(subscription) {
 // Helper function to handle customer updates
 async function handleCustomerUpdate(customer) {
   try {
-    const user = await clerkClient.users.getUserList({
+    const users = await clerk.users.getUserList({
       emailAddress: [customer.email]
     });
 
-    if (user && user.length > 0) {
-      await clerkClient.users.updateUser(user[0].id, {
+    if (users && users.length > 0) {
+      await clerk.users.updateUser(users[0].id, {
         publicMetadata: {
           stripeCustomerId: customer.id,
           paymentMethod: customer.invoice_settings?.default_payment_method,
@@ -85,12 +84,12 @@ async function handleFailedPayment(invoice) {
   try {
     const stripe = getStripe();
     const customer = await stripe.customers.retrieve(invoice.customer);
-    const user = await clerkClient.users.getUserList({
+    const users = await clerk.users.getUserList({
       emailAddress: [customer.email]
     });
 
-    if (user && user.length > 0) {
-      await clerkClient.users.updateUser(user[0].id, {
+    if (users && users.length > 0) {
+      await clerk.users.updateUser(users[0].id, {
         publicMetadata: {
           paymentStatus: 'failed',
           lastFailedPayment: new Date().toISOString(),
@@ -132,15 +131,19 @@ export async function stripeWebhookMiddleware(req, res, next) {
     const rawBody = await buffer(req);
     const signature = req.headers['stripe-signature'];
 
-    if (!signature) {
-      throw new Error('No Stripe signature found');
+    let event;
+    if (process.env.STRIPE_WEBHOOK_SECRET && signature) {
+      // Verify webhook signature if secret is available
+      event = stripe.webhooks.constructEvent(
+        rawBody,
+        signature,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } else {
+      // In development, accept unverified webhooks
+      event = JSON.parse(rawBody.toString());
+      console.warn('Processing unverified webhook - not recommended for production');
     }
-
-    const event = stripe.webhooks.constructEvent(
-      rawBody,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
 
     // Handle different event types with retry mechanism
     await retryOperation(async () => {
@@ -227,7 +230,7 @@ export async function verifySubscription(req, res, next) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const user = await clerkClient.users.getUser(userId);
+    const user = await clerk.users.getUser(userId);
     const subscriptionId = user.publicMetadata.subscriptionId;
 
     if (!subscriptionId) {
@@ -280,7 +283,7 @@ export async function checkSubscriptionLimits(req, res, next) {
     }
 
     // Get current usage from user metadata
-    const user = await clerkClient.users.getUser(userId);
+    const user = await clerk.users.getUser(userId);
     const usage = user.publicMetadata.usage || {
       requestsThisMinute: 0,
       charactersThisMonth: 0,
@@ -318,7 +321,7 @@ export async function checkSubscriptionLimits(req, res, next) {
     req.currentUsage = usage;
 
     // Update user metadata with new usage
-    await clerkClient.users.updateUser(userId, {
+    await clerk.users.updateUser(userId, {
       publicMetadata: {
         ...user.publicMetadata,
         usage

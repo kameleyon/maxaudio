@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import { requireAdmin, requireAccessLevel } from '../middleware/auth.js';
 
 export const authRoutes = Router();
 
@@ -40,4 +41,22 @@ authRoutes.get('/google-token', async (req, res) => {
       }
     });
   }
+});
+
+// Admin verification endpoint using the new requireAdmin middleware
+authRoutes.get('/verify-admin', requireAdmin, (req, res) => {
+  // Since requireAdmin middleware already performed all necessary checks,
+  // we can simply return the admin data that was added to the request
+  res.json({
+    verified: true,
+    ...req.admin
+  });
+});
+
+// Example of an endpoint requiring a specific access level
+authRoutes.get('/admin/system-settings', requireAccessLevel('full'), (req, res) => {
+  res.json({
+    message: 'Access granted to system settings',
+    admin: req.admin
+  });
 });
