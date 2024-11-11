@@ -9,6 +9,11 @@ export interface VoicePreset {
     pitch: number;
     volumeGainDb: number;
   };
+  capabilities: {
+    ssml: boolean;
+    customization: boolean;
+    neuralVoice: boolean;
+  };
   tags: string[];
   tier: 'free' | 'pro' | 'premium';
 }
@@ -28,6 +33,11 @@ export const VOICE_PRESETS: VoicePreset[] = [
     gender: 'MALE',
     voiceName: 'en-US-Standard-A',
     settings: { ...DEFAULT_VOICE_SETTINGS },
+    capabilities: {
+      ssml: true,
+      customization: false,
+      neuralVoice: false
+    },
     tags: ['standard', 'american', 'clear'],
     tier: 'free'
   },
@@ -38,17 +48,12 @@ export const VOICE_PRESETS: VoicePreset[] = [
     gender: 'FEMALE',
     voiceName: 'en-US-Standard-B',
     settings: { ...DEFAULT_VOICE_SETTINGS },
+    capabilities: {
+      ssml: true,
+      customization: false,
+      neuralVoice: false
+    },
     tags: ['standard', 'american', 'clear'],
-    tier: 'free'
-  },
-  {
-    id: 'en-gb-standard-1',
-    name: 'British English - Male',
-    languageCode: 'en-GB',
-    gender: 'MALE',
-    voiceName: 'en-GB-Standard-A',
-    settings: { ...DEFAULT_VOICE_SETTINGS },
-    tags: ['standard', 'british', 'clear'],
     tier: 'free'
   },
 
@@ -60,6 +65,11 @@ export const VOICE_PRESETS: VoicePreset[] = [
     gender: 'MALE',
     voiceName: 'en-US-Neural-A',
     settings: { ...DEFAULT_VOICE_SETTINGS },
+    capabilities: {
+      ssml: true,
+      customization: true,
+      neuralVoice: true
+    },
     tags: ['neural', 'american', 'natural'],
     tier: 'pro'
   },
@@ -70,17 +80,12 @@ export const VOICE_PRESETS: VoicePreset[] = [
     gender: 'FEMALE',
     voiceName: 'en-US-Neural-B',
     settings: { ...DEFAULT_VOICE_SETTINGS },
+    capabilities: {
+      ssml: true,
+      customization: true,
+      neuralVoice: true
+    },
     tags: ['neural', 'american', 'natural'],
-    tier: 'pro'
-  },
-  {
-    id: 'en-gb-neural-1',
-    name: 'British English - Neural Male',
-    languageCode: 'en-GB',
-    gender: 'MALE',
-    voiceName: 'en-GB-Neural-A',
-    settings: { ...DEFAULT_VOICE_SETTINGS },
-    tags: ['neural', 'british', 'natural'],
     tier: 'pro'
   },
 
@@ -92,6 +97,11 @@ export const VOICE_PRESETS: VoicePreset[] = [
     gender: 'MALE',
     voiceName: 'en-US-Studio-M',
     settings: { ...DEFAULT_VOICE_SETTINGS },
+    capabilities: {
+      ssml: true,
+      customization: true,
+      neuralVoice: true
+    },
     tags: ['studio', 'american', 'professional'],
     tier: 'premium'
   },
@@ -102,20 +112,31 @@ export const VOICE_PRESETS: VoicePreset[] = [
     gender: 'FEMALE',
     voiceName: 'en-US-Studio-F',
     settings: { ...DEFAULT_VOICE_SETTINGS },
+    capabilities: {
+      ssml: true,
+      customization: true,
+      neuralVoice: true
+    },
     tags: ['studio', 'american', 'professional'],
-    tier: 'premium'
-  },
-  {
-    id: 'en-gb-studio-1',
-    name: 'British English - Studio Male',
-    languageCode: 'en-GB',
-    gender: 'MALE',
-    voiceName: 'en-GB-Studio-M',
-    settings: { ...DEFAULT_VOICE_SETTINGS },
-    tags: ['studio', 'british', 'professional'],
     tier: 'premium'
   }
 ];
+
+export const getVoicesByCapability = (capability: keyof VoicePreset['capabilities']): VoicePreset[] => {
+  return VOICE_PRESETS.filter(voice => voice.capabilities[capability]);
+};
+
+export const getSSMLCompatibleVoices = (): VoicePreset[] => {
+  return getVoicesByCapability('ssml');
+};
+
+export const getCustomizableVoices = (): VoicePreset[] => {
+  return getVoicesByCapability('customization');
+};
+
+export const getNeuralVoices = (): VoicePreset[] => {
+  return getVoicesByCapability('neuralVoice');
+};
 
 export const getVoicesByTier = (tier: 'free' | 'pro' | 'premium'): VoicePreset[] => {
   const tiers = {
