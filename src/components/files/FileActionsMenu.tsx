@@ -1,82 +1,116 @@
-import {
-  Download,
-  Share2,
-  Trash2,
-  Edit2,
+import { 
+  Download, 
+  Share2, 
+  Trash2, 
+  Edit2, 
   Star,
-  Archive,
   Play,
-  Pause
-} from 'lucide-react'
+  Pause,
+  X
+} from 'lucide-react';
+import { type FileMetadata } from '../../services/file-management.service';
 
 interface FileActionsMenuProps {
-  file: {
-    id: string
-    title: string
-    favorite: boolean
-  }
-  isPlaying: boolean
-  onPlay: () => void
-  onClose: () => void
+  file: FileMetadata;
+  isPlaying: boolean;
+  onPlay: () => void;
+  onDownload: () => Promise<void>;
+  onDelete: () => Promise<void>;
+  onFavorite: () => Promise<void>;
+  onClose: () => void;
 }
 
-export function FileActionsMenu({ file, isPlaying, onPlay, onClose }: FileActionsMenuProps) {
-  const actions = [
-    {
-      icon: isPlaying ? Pause : Play,
-      label: isPlaying ? 'Pause' : 'Play',
-      onClick: onPlay
-    },
-    {
-      icon: Download,
-      label: 'Download',
-      onClick: () => console.log('Download', file.id)
-    },
-    {
-      icon: Share2,
-      label: 'Share',
-      onClick: () => console.log('Share', file.id)
-    },
-    {
-      icon: Edit2,
-      label: 'Rename',
-      onClick: () => console.log('Rename', file.id)
-    },
-    {
-      icon: Star,
-      label: file.favorite ? 'Unfavorite' : 'Favorite',
-      onClick: () => console.log('Toggle favorite', file.id)
-    },
-    {
-      icon: Archive,
-      label: 'Archive',
-      onClick: () => console.log('Archive', file.id)
-    },
-    {
-      icon: Trash2,
-      label: 'Delete',
-      onClick: () => console.log('Delete', file.id),
-      className: 'text-red-400 hover:text-red-300'
-    }
-  ]
-
+export function FileActionsMenu({
+  file,
+  isPlaying,
+  onPlay,
+  onDownload,
+  onDelete,
+  onFavorite,
+  onClose
+}: FileActionsMenuProps) {
   return (
-    <div
-      className="absolute right-0 top-8 z-10 w-48 bg-[#0f0035] border border-white/10 rounded-lg shadow-lg py-1"
-      onMouseLeave={onClose}
-    >
-      {actions.map((action) => (
+    <div className="absolute right-0 top-full mt-2 w-48 bg-white/10 backdrop-blur-lg rounded-lg shadow-lg border border-white/10 z-50">
+      <div className="p-1">
+        {/* Play/Pause */}
         <button
-          key={action.label}
-          onClick={action.onClick}
-          className={`w-full px-4 py-2 flex items-center gap-2 hover:bg-white/5 transition-colors ${
-            action.className || 'text-white/80 hover:text-white'
-          }`}
+          onClick={onPlay}
+          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
         >
-          <action.icon className="w-4 h-4" />
-          <span>{action.label}</span>
+          {isPlaying ? (
+            <>
+              <Pause className="w-4 h-4" />
+              <span>Pause</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              <span>Play</span>
+            </>
+          )}
         </button>
-      ))}
+
+        {/* Download */}
+        <button
+          onClick={onDownload}
+          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <Download className="w-4 h-4" />
+          <span>Download</span>
+        </button>
+
+        {/* Share */}
+        <button
+          onClick={() => {
+            // TODO: Implement sharing
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <Share2 className="w-4 h-4" />
+          <span>Share</span>
+        </button>
+
+        {/* Edit */}
+        <button
+          onClick={() => {
+            // TODO: Implement editing
+          }}
+          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <Edit2 className="w-4 h-4" />
+          <span>Edit</span>
+        </button>
+
+        {/* Favorite */}
+        <button
+          onClick={onFavorite}
+          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-white/10 rounded-lg transition-colors"
+        >
+          <Star className={`w-4 h-4 ${file.favorite ? 'fill-yellow-500 text-yellow-500' : ''}`} />
+          <span>{file.favorite ? 'Unfavorite' : 'Favorite'}</span>
+        </button>
+
+        <div className="h-px bg-white/10 my-1" />
+
+        {/* Delete */}
+        <button
+          onClick={onDelete}
+          className="flex items-center gap-2 w-full px-3 py-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Delete</span>
+        </button>
+      </div>
+
+      {/* Close Button */}
+      <button
+        onClick={onClose}
+        className="absolute -top-2 -right-2 p-1 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+      >
+        <X className="w-4 h-4" />
+      </button>
     </div>
-  )
+  );
 }
+
+export type { FileActionsMenuProps };
