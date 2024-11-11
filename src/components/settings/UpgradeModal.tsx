@@ -1,22 +1,22 @@
-import { useState } from 'react'
-import { X, CreditCard, Shield, AlertCircle } from 'lucide-react'
-import type { SubscriptionTier } from '../../config/subscription-tiers'
-import { stripeService } from '../../services/stripe.service'
-import { useUser } from '@clerk/clerk-react'
+import { useState } from 'react';
+import { X, CreditCard, Shield, AlertCircle } from 'lucide-react';
+import type { SubscriptionTier } from '../../config/subscription-tiers';
+import { stripeService } from '../../services/stripe.service';
+import { useUser, useAuth } from '@clerk/clerk-react';
 
 interface UpgradeModalProps {
-  isOpen: boolean
-  onClose: () => void
-  selectedTier: SubscriptionTier | null
-  currentTier: SubscriptionTier
-  billingCycle: 'monthly' | 'yearly'
+  isOpen: boolean;
+  onClose: () => void;
+  selectedTier: SubscriptionTier | null;
+  currentTier: SubscriptionTier;
+  billingCycle: 'monthly' | 'yearly';
 }
 
 type PriceMap = {
   [key in 'pro' | 'premium']: {
-    [cycle in 'monthly' | 'yearly']: string
-  }
-}
+    [cycle in 'monthly' | 'yearly']: string;
+  };
+};
 
 export function UpgradeModal({
   isOpen,
@@ -25,38 +25,39 @@ export function UpgradeModal({
   currentTier,
   billingCycle
 }: UpgradeModalProps) {
-  const { user } = useUser()
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen || !selectedTier) return null
+  if (!isOpen || !selectedTier) return null;
 
-  const isUpgrade = selectedTier.monthlyPrice > currentTier.monthlyPrice
+  const isUpgrade = selectedTier.monthlyPrice > currentTier.monthlyPrice;
   const price = billingCycle === 'monthly' 
     ? selectedTier.monthlyPrice 
-    : selectedTier.yearlyPrice
+    : selectedTier.yearlyPrice;
 
   const formatPrice = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
-    }).format(amount)
-  }
+    }).format(amount);
+  };
 
   const calculatePriceChange = () => {
     const currentPrice = billingCycle === 'monthly'
       ? currentTier.monthlyPrice
-      : currentTier.yearlyPrice
+      : currentTier.yearlyPrice;
     const newPrice = billingCycle === 'monthly'
       ? selectedTier.monthlyPrice
-      : selectedTier.yearlyPrice
-    const difference = newPrice - currentPrice
+      : selectedTier.yearlyPrice;
+    const difference = newPrice - currentPrice;
     return {
       amount: Math.abs(difference),
       type: difference > 0 ? 'increase' : 'decrease'
-    }
-  }
+    };
+  };
 
   const getPriceId = (tierId: string, cycle: 'monthly' | 'yearly'): string => {
     const priceMap: PriceMap = {
@@ -68,23 +69,28 @@ export function UpgradeModal({
         monthly: import.meta.env.VITE_STRIPE_PRICE_ID_PREMIUM_MONTHLY || '',
         yearly: import.meta.env.VITE_STRIPE_PRICE_ID_PREMIUM_YEARLY || ''
       }
-    }
-    return priceMap[tierId as keyof PriceMap]?.[cycle] || ''
-  }
+    };
+    return priceMap[tierId as keyof PriceMap]?.[cycle] || '';
+  };
 
   const handleConfirm = async () => {
     try {
-      setIsProcessing(true)
-      setError(null)
+      setIsProcessing(true);
+      setError(null);
 
-      const priceId = getPriceId(selectedTier.id, billingCycle)
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const priceId = getPriceId(selectedTier.id, billingCycle);
       if (!priceId) {
-        throw new Error('Invalid price configuration')
+        throw new Error('Invalid price configuration');
       }
 
       // Get the current URL for success/cancel redirects
-      const baseUrl = window.location.origin
-      const returnUrl = `${baseUrl}/settings?tab=subscription`
+      const baseUrl = window.location.origin;
+      const returnUrl = `${baseUrl}/settings?tab=subscription`;
 
       if (currentTier.id === 'free') {
         // New subscription - redirect to Stripe Checkout
@@ -94,29 +100,29 @@ export function UpgradeModal({
           cancelUrl: `${returnUrl}&result=canceled`,
           customerId: user?.id || '',
           clientReferenceId: user?.id || ''
-        })
+        }, token);
       } else {
         // Existing subscription - update the subscription
-        const subscriptionId = user?.publicMetadata?.subscriptionId as string
+        const subscriptionId = user?.publicMetadata?.subscriptionId as string;
         if (!subscriptionId) {
-          throw new Error('No active subscription found')
+          throw new Error('No active subscription found');
         }
 
         await stripeService.updateSubscription(subscriptionId, {
           priceId
-        })
+        }, token);
 
-        onClose()
+        onClose();
       }
     } catch (err) {
-      console.error('Subscription change error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to process subscription change')
+      console.error('Subscription change error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to process subscription change');
     } finally {
-      setIsProcessing(false)
+      setIsProcessing(false);
     }
-  }
+  };
 
-  const priceChange = calculatePriceChange()
+  const priceChange = calculatePriceChange();
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -201,5 +207,5 @@ export function UpgradeModal({
         </div>
       </div>
     </div>
-  )
+  );
 }

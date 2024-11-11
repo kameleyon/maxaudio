@@ -1,137 +1,202 @@
-import { useState, useEffect } from 'react'
-import { CreditCard, Download, Loader2, AlertCircle } from 'lucide-react'
-import { stripeService } from '../../services/stripe.service'
-import { useUser } from '@clerk/clerk-react'
-import { useToastHelpers } from '../../contexts/ToastContext'
+import { useState, useEffect } from 'react';
+import { CreditCard, Download, Loader2, AlertCircle, Plus } from 'lucide-react';
+import { stripeService } from '../../services/stripe.service';
+import { useUser, useAuth } from '@clerk/clerk-react';
+import { useToastHelpers } from '../../contexts/ToastContext';
 
 interface PaymentMethod {
-  id: string
+  id: string;
   card: {
-    brand: string
-    last4: string
-    expMonth: number
-    expYear: number
-  }
-  isDefault: boolean
+    brand: string;
+    last4: string;
+    expMonth: number;
+    expYear: number;
+  };
+  isDefault: boolean;
 }
 
 interface Invoice {
-  id: string
-  number: string
-  date: number
-  amount: number
-  status: string
-  url: string
+  id: string;
+  number: string;
+  date: number;
+  amount: number;
+  status: string;
+  url: string;
 }
 
 interface UpcomingPayment {
-  amount: number
-  dueDate: number
+  amount: number;
+  dueDate: number;
 }
 
 export function BillingPanel() {
-  const { user } = useUser()
-  const toast = useToastHelpers()
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([])
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [upcomingPayment, setUpcomingPayment] = useState<UpcomingPayment | null>(null)
-  const [isUpdating, setIsUpdating] = useState(false)
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const toast = useToastHelpers();
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [upcomingPayment, setUpcomingPayment] = useState<UpcomingPayment | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
-    loadBillingData()
-  }, [user])
+    loadBillingData();
+  }, [user]);
 
   const loadBillingData = async () => {
-    if (!user) return
+    if (!user) return;
 
     try {
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
+      setError(null);
+
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
 
       // Get customer ID from user metadata
-      const customerId = user.publicMetadata.stripeCustomerId as string
+      const customerId = user.publicMetadata.stripeCustomerId as string;
       if (!customerId) {
-        throw new Error('No Stripe customer ID found')
+        // Not an error, just a new user
+        setIsLoading(false);
+        return;
       }
 
       // Load payment methods
-      const methods = await stripeService.getPaymentMethods(customerId)
-      setPaymentMethods(methods)
+      const methods = await stripeService.getPaymentMethods(customerId, token);
+      setPaymentMethods(methods);
 
       // Load subscription details
-      const subscriptionId = user.publicMetadata.subscriptionId as string
+      const subscriptionId = user.publicMetadata.subscriptionId as string;
       if (subscriptionId) {
         // Get upcoming invoice
-        const upcoming = await stripeService.getUpcomingInvoice(subscriptionId)
+        const upcoming = await stripeService.getUpcomingInvoice(subscriptionId, token);
         setUpcomingPayment({
           amount: upcoming.amount_due,
           dueDate: upcoming.next_payment_attempt
-        })
+        });
+
+        // Load invoice history
+        const response = await stripeService.getSubscription(subscriptionId, token);
+        setInvoices(response.invoices.data.map((invoice: any) => ({
+          id: invoice.id,
+          number: invoice.number,
+          date: invoice.created,
+          amount: invoice.amount_paid,
+          status: invoice.status,
+          url: invoice.hosted_invoice_url
+        })));
       }
-
-      // Load invoice history
-      const response = await stripeService.getSubscription(subscriptionId)
-      setInvoices(response.invoices.data.map((invoice: any) => ({
-        id: invoice.id,
-        number: invoice.number,
-        date: invoice.created,
-        amount: invoice.amount_paid,
-        status: invoice.status,
-        url: invoice.hosted_invoice_url
-      })))
-
     } catch (err) {
-      console.error('Failed to load billing data:', err)
-      setError('Failed to load billing information. Please try again.')
+      console.error('Failed to load billing data:', err);
+      setError('Failed to load billing information. Please try again.');
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
-  const handleUpdatePaymentMethod = async () => {
-    if (!user) return
+  const handleSetupBilling = async () => {
+    if (!user) return;
 
     try {
-      setIsUpdating(true)
-      const customerId = user.publicMetadata.stripeCustomerId as string
-      const returnUrl = `${window.location.origin}/settings?tab=billing`
+      setIsUpdating(true);
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const returnUrl = `${window.location.origin}/settings?tab=billing`;
+      
+      // Create checkout session for initial setup
+      await stripeService.redirectToCheckout({
+        priceId: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY, // Default to Pro Monthly
+        successUrl: returnUrl,
+        cancelUrl: returnUrl,
+        clientReferenceId: user.id
+      }, token);
+    } catch (err) {
+      console.error('Failed to setup billing:', err);
+      toast.error('Failed to setup billing. Please try again.');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleUpdatePaymentMethod = async () => {
+    if (!user) return;
+
+    try {
+      setIsUpdating(true);
+      const token = await getToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const customerId = user.publicMetadata.stripeCustomerId as string;
+      const returnUrl = `${window.location.origin}/settings?tab=billing`;
       
       await stripeService.redirectToPortal({
         customerId,
         returnUrl
-      })
+      }, token);
     } catch (err) {
-      console.error('Failed to update payment method:', err)
-      toast.error('Failed to open payment method update form')
+      console.error('Failed to update payment method:', err);
+      toast.error('Failed to open payment method update form');
     } finally {
-      setIsUpdating(false)
+      setIsUpdating(false);
     }
-  }
+  };
 
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
-    }).format(amount / 100) // Stripe amounts are in cents
-  }
+    }).format(amount / 100); // Stripe amounts are in cents
+  };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp * 1000).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric'
-    })
-  }
+    });
+  };
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <Loader2 className="w-6 h-6 animate-spin text-white/60" />
       </div>
-    )
+    );
+  }
+
+  // Show setup UI for new users
+  if (!user?.publicMetadata.stripeCustomerId) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64 space-y-4">
+        <div className="text-center space-y-2">
+          <h2 className="text-xl font-semibold">Set Up Billing</h2>
+          <p className="text-white/60">You haven't set up billing yet. Set up billing to access premium features.</p>
+        </div>
+        <button
+          onClick={handleSetupBilling}
+          disabled={isUpdating}
+          className="flex items-center gap-2 px-6 py-3 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors disabled:opacity-50"
+        >
+          {isUpdating ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : (
+            <>
+              <Plus className="w-5 h-5" />
+              Set Up Billing
+            </>
+          )}
+        </button>
+      </div>
+    );
   }
 
   if (error) {
@@ -140,10 +205,10 @@ export function BillingPanel() {
         <AlertCircle className="w-5 h-5" />
         <p>{error}</p>
       </div>
-    )
+    );
   }
 
-  const defaultPaymentMethod = paymentMethods.find(method => method.isDefault)
+  const defaultPaymentMethod = paymentMethods.find(method => method.isDefault);
 
   return (
     <div className="space-y-8">
@@ -252,5 +317,5 @@ export function BillingPanel() {
         </div>
       </div>
     </div>
-  )
+  );
 }

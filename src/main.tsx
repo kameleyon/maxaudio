@@ -9,6 +9,14 @@ import { UsageNotificationProvider } from './contexts/UsageNotificationContext'
 import App from './App'
 import './index.css'
 
+// Enable React Router v7 future flags
+const router = {
+  future: {
+    v7_startTransition: true,
+    v7_relativeSplatPath: true
+  }
+};
+
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 if (!CLERK_PUBLISHABLE_KEY) {
@@ -54,7 +62,7 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       }}
     >
       <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
+        <BrowserRouter future={router.future}>
           <ThemeProvider>
             <ToastProvider>
               <UsageNotificationProvider>
