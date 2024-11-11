@@ -31,25 +31,21 @@ interface Alert {
 
 class MonitoringService {
   private baseUrl: string;
-  private checkInterval: number;
-  private healthCheckTimer: ReturnType<typeof setInterval> | null = null;
+  private eventSource: EventSource | null = null;
   private alertHandlers: ((alert: Alert) => void)[] = [];
+  private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 5000; // 5 seconds
 
   constructor() {
     this.baseUrl = '/api/monitoring';
-    this.checkInterval = 60000; // 1 minute
   }
 
   /**
    * Start system monitoring
    */
   startMonitoring(): void {
-    this.performHealthCheck();
-    this.healthCheckTimer = setInterval(() => {
-      this.performHealthCheck();
-    }, this.checkInterval);
-
-    // Listen for server-sent events
     this.initializeEventSource();
   }
 
@@ -57,10 +53,15 @@ class MonitoringService {
    * Stop system monitoring
    */
   stopMonitoring(): void {
-    if (this.healthCheckTimer) {
-      clearInterval(this.healthCheckTimer);
-      this.healthCheckTimer = null;
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
     }
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+    this.reconnectAttempts = 0;
   }
 
   /**
@@ -77,67 +78,16 @@ class MonitoringService {
   }
 
   /**
-   * Perform health check on all components
-   */
-  private async performHealthCheck(): Promise<void> {
-    try {
-      const components = [
-        'database',
-        'cache',
-        'storage',
-        'authentication',
-        'tts-service',
-        'voice-cloning'
-      ];
-
-      const checks: HealthCheck[] = await Promise.all(
-        components.map(async (component) => {
-          const startTime = Date.now();
-          try {
-            const response = await axios.get(`${this.baseUrl}/health/${component}`);
-            const endTime = Date.now();
-            return {
-              name: component,
-              status: response.data.status,
-              responseTime: endTime - startTime,
-              message: response.data.message
-            };
-          } catch (error) {
-            return {
-              name: component,
-              status: 'down',
-              responseTime: Date.now() - startTime,
-              message: error instanceof Error ? error.message : 'Health check failed'
-            };
-          }
-        })
-      );
-
-      // Report health check results
-      await axios.post(`${this.baseUrl}/health/report`, { checks });
-
-      // Generate alerts for degraded or down components
-      checks.forEach((check) => {
-        if (check.status !== 'healthy') {
-          this.generateAlert({
-            type: check.status === 'down' ? 'error' : 'warning',
-            component: check.name,
-            message: check.message || `${check.name} is ${check.status}`
-          });
-        }
-      });
-    } catch (error) {
-      console.error('Error performing health check:', error);
-    }
-  }
-
-  /**
    * Initialize server-sent events connection
    */
   private initializeEventSource(): void {
-    const eventSource = new EventSource(`${this.baseUrl}/events`);
+    if (this.eventSource) {
+      this.eventSource.close();
+    }
 
-    eventSource.onmessage = (event) => {
+    this.eventSource = new EventSource(`${this.baseUrl}/events`);
+
+    this.eventSource.onmessage = (event) => {
       try {
         const alert: Alert = JSON.parse(event.data);
         this.notifyAlertHandlers(alert);
@@ -146,36 +96,33 @@ class MonitoringService {
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('Error in monitoring event source:', error);
-      eventSource.close();
-      // Retry connection after delay
-      setTimeout(() => this.initializeEventSource(), 5000);
+    this.eventSource.onerror = () => {
+      if (this.eventSource) {
+        this.eventSource.close();
+        this.eventSource = null;
+      }
+
+      // Attempt to reconnect if max attempts not reached
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts++;
+        this.reconnectTimeout = setTimeout(() => {
+          this.initializeEventSource();
+        }, this.reconnectDelay * this.reconnectAttempts);
+      } else {
+        console.error('Max reconnection attempts reached');
+        this.notifyAlertHandlers({
+          id: crypto.randomUUID(),
+          type: 'error',
+          message: 'Lost connection to monitoring service',
+          component: 'monitoring',
+          timestamp: new Date().toISOString()
+        });
+      }
     };
-  }
 
-  /**
-   * Generate system alert
-   */
-  private generateAlert(options: {
-    type: Alert['type'];
-    component: string;
-    message: string;
-    metadata?: Record<string, any>;
-  }): void {
-    const alert: Alert = {
-      id: crypto.randomUUID(),
-      timestamp: new Date().toISOString(),
-      ...options
+    this.eventSource.onopen = () => {
+      this.reconnectAttempts = 0;
     };
-
-    // Send alert to server
-    axios.post(`${this.baseUrl}/alerts`, alert).catch((error) => {
-      console.error('Error sending alert:', error);
-    });
-
-    // Notify handlers
-    this.notifyAlertHandlers(alert);
   }
 
   /**
@@ -243,6 +190,31 @@ class MonitoringService {
     } catch (error) {
       console.error('Error getting alert history:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Check component health
+   */
+  async checkComponentHealth(component: string): Promise<HealthCheck> {
+    try {
+      const startTime = Date.now();
+      const response = await axios.get(`${this.baseUrl}/health/${component}`);
+      const endTime = Date.now();
+
+      return {
+        name: component,
+        status: response.data.status,
+        responseTime: endTime - startTime,
+        message: response.data.message
+      };
+    } catch (error) {
+      return {
+        name: component,
+        status: 'down',
+        responseTime: Date.now() - Date.now(),
+        message: error instanceof Error ? error.message : 'Health check failed'
+      };
     }
   }
 }

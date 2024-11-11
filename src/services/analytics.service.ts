@@ -66,9 +66,11 @@ interface ErrorReport {
 
 class AnalyticsService {
   private baseUrl: string;
+  private sessionId: string;
 
   constructor() {
     this.baseUrl = '/api/analytics';
+    this.sessionId = this.generateSessionId();
   }
 
   /**
@@ -107,7 +109,7 @@ class AnalyticsService {
       await axios.post(`${this.baseUrl}/events`, {
         ...options,
         timestamp: new Date().toISOString(),
-        sessionId: this.getSessionId(),
+        sessionId: this.sessionId,
         userAgent: navigator.userAgent
       });
     } catch (error) {
@@ -140,12 +142,26 @@ class AnalyticsService {
   /**
    * Track performance metrics
    */
-  async trackPerformance(metrics: PerformanceEntry[]): Promise<void> {
+  async trackPerformance(): Promise<void> {
     try {
+      // Get performance metrics
+      const metrics = {
+        pageLoad: performance.timing.loadEventEnd - performance.timing.navigationStart,
+        domReady: performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart,
+        firstPaint: performance.getEntriesByType('paint')[0]?.startTime || 0,
+        firstContentfulPaint: performance.getEntriesByType('paint')[1]?.startTime || 0,
+        resources: performance.getEntriesByType('resource').map(entry => ({
+          name: entry.name,
+          duration: entry.duration,
+          size: (entry as any).transferSize || 0
+        }))
+      };
+
       await axios.post(`${this.baseUrl}/performance`, {
         metrics,
         timestamp: new Date().toISOString(),
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+        sessionId: this.sessionId
       });
     } catch (error) {
       console.error('Error tracking performance:', error);
@@ -154,50 +170,19 @@ class AnalyticsService {
   }
 
   /**
-   * Track resource usage
+   * Initialize analytics tracking
    */
-  async trackResourceUsage(resources: ResourceAnalytics): Promise<void> {
-    try {
-      await axios.post(`${this.baseUrl}/resources`, {
-        ...resources,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.error('Error tracking resource usage:', error);
-      // Don't throw error to prevent affecting user experience
-    }
-  }
+  initialize(): void {
+    // Track page views
+    this.trackEvent({
+      category: 'Page',
+      action: 'View',
+      label: window.location.pathname
+    });
 
-  /**
-   * Get session ID
-   */
-  private getSessionId(): string {
-    let sessionId = sessionStorage.getItem('analytics_session_id');
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      sessionStorage.setItem('analytics_session_id', sessionId);
-    }
-    return sessionId;
-  }
-
-  /**
-   * Initialize performance monitoring
-   */
-  initializePerformanceMonitoring(): void {
-    // Track page load performance
+    // Track performance on load
     window.addEventListener('load', () => {
-      const performanceEntries = performance.getEntriesByType('navigation');
-      this.trackPerformance(performanceEntries);
-    });
-
-    // Track resource load performance
-    const observer = new PerformanceObserver((list) => {
-      const entries = list.getEntries();
-      this.trackPerformance(entries);
-    });
-
-    observer.observe({
-      entryTypes: ['resource', 'paint', 'largest-contentful-paint', 'first-input']
+      this.trackPerformance();
     });
 
     // Track errors
@@ -209,45 +194,22 @@ class AnalyticsService {
     window.addEventListener('unhandledrejection', (event) => {
       this.reportError(new Error(event.reason));
     });
+
+    // Track page visibility changes
+    document.addEventListener('visibilitychange', () => {
+      this.trackEvent({
+        category: 'Page',
+        action: document.hidden ? 'Hide' : 'Show',
+        label: window.location.pathname
+      });
+    });
   }
 
   /**
-   * Initialize resource monitoring
+   * Generate unique session ID
    */
-  initializeResourceMonitoring(): void {
-    // Monitor memory usage
-    if ('memory' in performance) {
-      setInterval(() => {
-        const memory = (performance as any).memory;
-        this.trackResourceUsage({
-          cpuUsage: 0, // Not available in browser
-          memoryUsage: (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100,
-          diskUsage: 0, // Not available in browser
-          bandwidth: 0 // Calculate from ResourceTiming API
-        });
-      }, 60000); // Every minute
-    }
-
-    // Monitor bandwidth usage
-    const calculateBandwidth = () => {
-      const resources = performance.getEntriesByType('resource');
-      const totalBytes = resources.reduce((total, resource) => {
-        return total + (resource as any).transferSize || 0;
-      }, 0);
-      return totalBytes;
-    };
-
-    setInterval(() => {
-      const bandwidth = calculateBandwidth();
-      performance.clearResourceTimings();
-      
-      this.trackResourceUsage({
-        cpuUsage: 0,
-        memoryUsage: 0,
-        diskUsage: 0,
-        bandwidth
-      });
-    }, 60000); // Every minute
+  private generateSessionId(): string {
+    return crypto.randomUUID();
   }
 }
 
