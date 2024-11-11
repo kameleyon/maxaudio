@@ -1,6 +1,18 @@
 import { Router } from 'express';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/auth.js';
 import { rateLimit } from 'express-rate-limit';
+import { subscriptionService } from '../services/subscription.service.js';
+import { usageService } from '../services/usage.service.js';
+import { clerkClient } from '@clerk/clerk-sdk-node';
+import Stripe from 'stripe';
+
+// Initialize Stripe with a function to ensure environment variables are loaded
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
 
 export const subscriptionRoutes = Router();
 
@@ -16,22 +28,12 @@ subscriptionRoutes.use(subscriptionLimiter);
 // Get current subscription
 subscriptionRoutes.get('/current', auth, async (req, res) => {
   try {
-    // TODO: Implement fetching from database
-    // Mock response for now
+    const subscription = await subscriptionService.getCurrentSubscription(req.auth.userId);
+    const usage = await subscriptionService.getSubscriptionUsage(req.auth.userId);
+    
     res.json({
-      currentTier: 'pro',
-      billingCycle: 'monthly',
-      status: 'active',
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      cancelAtPeriodEnd: false,
-      usage: {
-        charactersUsed: 250000,
-        charactersLimit: 1000000,
-        voiceClonesUsed: 2,
-        voiceClonesLimit: 3,
-        requestsThisMinute: 3,
-        requestsLimit: 15
-      }
+      ...subscription,
+      usage
     });
   } catch (error) {
     console.error('Error fetching subscription:', error);
@@ -42,16 +44,8 @@ subscriptionRoutes.get('/current', auth, async (req, res) => {
 // Get usage statistics
 subscriptionRoutes.get('/usage', auth, async (req, res) => {
   try {
-    // TODO: Implement fetching from database
-    // Mock response for now
-    res.json({
-      charactersUsed: 250000,
-      charactersLimit: 1000000,
-      voiceClonesUsed: 2,
-      voiceClonesLimit: 3,
-      requestsThisMinute: 3,
-      requestsLimit: 15
-    });
+    const usage = await usageService.getUsageStats(req.auth.userId);
+    res.json(usage);
   } catch (error) {
     console.error('Error fetching usage stats:', error);
     res.status(500).json({ error: 'Failed to fetch usage statistics' });
@@ -61,20 +55,12 @@ subscriptionRoutes.get('/usage', auth, async (req, res) => {
 // Change subscription plan
 subscriptionRoutes.post('/change-plan', auth, async (req, res) => {
   try {
-    const { newTierId, billingCycle } = req.body;
-
-    // TODO: Implement subscription change logic
-    // This would typically involve:
-    // 1. Validating the new tier
-    // 2. Checking payment method
-    // 3. Calculating prorated amounts
-    // 4. Updating the subscription in the payment provider
-    // 5. Updating the database
-
-    res.json({
-      success: true,
-      message: 'Subscription updated successfully'
-    });
+    const { priceId } = req.body;
+    const subscription = await subscriptionService.createOrUpdateSubscription(
+      req.auth.userId,
+      priceId
+    );
+    res.json(subscription);
   } catch (error) {
     console.error('Error changing subscription:', error);
     res.status(500).json({ error: 'Failed to change subscription plan' });
@@ -84,20 +70,8 @@ subscriptionRoutes.post('/change-plan', auth, async (req, res) => {
 // Cancel subscription
 subscriptionRoutes.post('/cancel', auth, async (req, res) => {
   try {
-    const { cancelAtPeriodEnd } = req.body;
-
-    // TODO: Implement cancellation logic
-    // This would typically involve:
-    // 1. Updating the subscription in the payment provider
-    // 2. Updating the database
-    // 3. Sending confirmation email
-
-    res.json({
-      success: true,
-      message: cancelAtPeriodEnd 
-        ? 'Subscription will be canceled at the end of the billing period'
-        : 'Subscription canceled immediately'
-    });
+    const subscription = await subscriptionService.cancelSubscription(req.auth.userId);
+    res.json(subscription);
   } catch (error) {
     console.error('Error canceling subscription:', error);
     res.status(500).json({ error: 'Failed to cancel subscription' });
@@ -107,11 +81,12 @@ subscriptionRoutes.post('/cancel', auth, async (req, res) => {
 // Reactivate subscription
 subscriptionRoutes.post('/reactivate', auth, async (req, res) => {
   try {
-    // TODO: Implement reactivation logic
-    res.json({
-      success: true,
-      message: 'Subscription reactivated successfully'
-    });
+    const { priceId } = req.body;
+    const subscription = await subscriptionService.createOrUpdateSubscription(
+      req.auth.userId,
+      priceId
+    );
+    res.json(subscription);
   } catch (error) {
     console.error('Error reactivating subscription:', error);
     res.status(500).json({ error: 'Failed to reactivate subscription' });
@@ -122,8 +97,24 @@ subscriptionRoutes.post('/reactivate', auth, async (req, res) => {
 subscriptionRoutes.post('/update-payment', auth, async (req, res) => {
   try {
     const { paymentMethodId } = req.body;
+    const stripe = getStripe();
+    const user = await clerkClient.users.getUser(req.auth.userId);
+    const customerId = user.publicMetadata.stripeCustomerId;
 
-    // TODO: Implement payment method update logic
+    if (!customerId) {
+      throw new Error('No Stripe customer found');
+    }
+
+    await stripe.paymentMethods.attach(paymentMethodId, {
+      customer: customerId,
+    });
+
+    await stripe.customers.update(customerId, {
+      invoice_settings: {
+        default_payment_method: paymentMethodId,
+      },
+    });
+
     res.json({
       success: true,
       message: 'Payment method updated successfully'
@@ -138,19 +129,21 @@ subscriptionRoutes.post('/update-payment', auth, async (req, res) => {
 subscriptionRoutes.get('/invoices', auth, async (req, res) => {
   try {
     const { limit = 10, starting_after } = req.query;
+    const stripe = getStripe();
+    const user = await clerkClient.users.getUser(req.auth.userId);
+    const customerId = user.publicMetadata.stripeCustomerId;
 
-    // TODO: Implement invoice fetching logic
-    // Mock response for now
-    res.json([
-      {
-        id: 'inv_1',
-        amount: 2999,
-        status: 'paid',
-        created: Date.now(),
-        periodStart: Date.now() - 30 * 24 * 60 * 60 * 1000,
-        periodEnd: Date.now()
-      }
-    ]);
+    if (!customerId) {
+      return res.json([]);
+    }
+
+    const invoices = await stripe.invoices.list({
+      customer: customerId,
+      limit: Number(limit),
+      starting_after: starting_after || undefined,
+    });
+
+    res.json(invoices.data);
   } catch (error) {
     console.error('Error fetching invoices:', error);
     res.status(500).json({ error: 'Failed to fetch invoices' });
@@ -160,17 +153,26 @@ subscriptionRoutes.get('/invoices', auth, async (req, res) => {
 // Create checkout session
 subscriptionRoutes.post('/create-checkout', auth, async (req, res) => {
   try {
-    const { tierId, billingCycle } = req.body;
-
-    // TODO: Implement checkout session creation
-    // This would typically involve:
-    // 1. Validating the tier
-    // 2. Creating a checkout session with the payment provider
-    // 3. Returning the session URL
-
-    res.json({
-      sessionUrl: 'https://checkout.stripe.com/example-session'
+    const { priceId } = req.body;
+    const stripe = getStripe();
+    const user = await clerkClient.users.getUser(req.auth.userId);
+    
+    const session = await stripe.checkout.sessions.create({
+      customer_email: user.emailAddresses[0].emailAddress,
+      client_reference_id: req.auth.userId,
+      payment_method_types: ['card'],
+      mode: 'subscription',
+      line_items: [
+        {
+          price: priceId,
+          quantity: 1,
+        },
+      ],
+      success_url: `${process.env.CLIENT_URL}/settings?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL}/settings`,
     });
+
+    res.json({ sessionUrl: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
     res.status(500).json({ error: 'Failed to create checkout session' });
@@ -180,10 +182,20 @@ subscriptionRoutes.post('/create-checkout', auth, async (req, res) => {
 // Create customer portal session
 subscriptionRoutes.post('/create-portal', auth, async (req, res) => {
   try {
-    // TODO: Implement portal session creation
-    res.json({
-      url: 'https://billing.stripe.com/example-portal'
+    const stripe = getStripe();
+    const user = await clerkClient.users.getUser(req.auth.userId);
+    const customerId = user.publicMetadata.stripeCustomerId;
+
+    if (!customerId) {
+      throw new Error('No Stripe customer found');
+    }
+
+    const session = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${process.env.CLIENT_URL}/settings`,
     });
+
+    res.json({ url: session.url });
   } catch (error) {
     console.error('Error creating portal session:', error);
     res.status(500).json({ error: 'Failed to create portal session' });
@@ -193,55 +205,20 @@ subscriptionRoutes.post('/create-portal', auth, async (req, res) => {
 // Track usage
 subscriptionRoutes.post('/track-usage', auth, async (req, res) => {
   try {
-    const { characters, requestCount, voiceCloneCount } = req.body;
+    const { characters, voiceClone } = req.body;
+    let result;
 
-    // TODO: Implement usage tracking
-    // This would typically involve:
-    // 1. Validating against limits
-    // 2. Updating usage metrics in the database
-    // 3. Checking for overage charges if applicable
+    if (characters) {
+      result = await usageService.trackCharacters(req.auth.userId, characters);
+    }
 
-    res.json({
-      success: true,
-      message: 'Usage tracked successfully'
-    });
+    if (voiceClone) {
+      result = await usageService.trackVoiceClone(req.auth.userId);
+    }
+
+    res.json(result);
   } catch (error) {
     console.error('Error tracking usage:', error);
     res.status(500).json({ error: 'Failed to track usage' });
-  }
-});
-
-// Check rate limit
-subscriptionRoutes.get('/rate-limit', auth, async (req, res) => {
-  try {
-    // TODO: Implement rate limit checking
-    // This would typically involve:
-    // 1. Checking current usage against tier limits
-    // 2. Returning remaining quota and reset time
-
-    res.json({
-      allowed: true,
-      remaining: 12,
-      resetTime: new Date(Date.now() + 60 * 1000).toISOString()
-    });
-  } catch (error) {
-    console.error('Error checking rate limit:', error);
-    res.status(500).json({ error: 'Failed to check rate limit' });
-  }
-});
-
-// Webhook endpoint
-subscriptionRoutes.post('/webhook', async (req, res) => {
-  try {
-    // TODO: Implement webhook handling
-    // This would typically involve:
-    // 1. Verifying webhook signature
-    // 2. Processing different event types
-    // 3. Updating database accordingly
-
-    res.json({ received: true });
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    res.status(400).json({ error: 'Webhook error' });
   }
 });

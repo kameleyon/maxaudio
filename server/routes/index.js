@@ -5,6 +5,7 @@ import { audioRoutes } from './audio.routes.js';
 import { publishRoutes } from './publish.routes.js';
 import { subscriptionRoutes } from './subscription.routes.js';
 import { stripeRoutes } from './stripe.routes.js';
+import { usageRoutes } from './usage.routes.js';
 
 export const router = Router();
 
@@ -20,3 +21,4 @@ router.use('/api/audio', audioRoutes);
 router.use('/api/publish', publishRoutes);
 router.use('/api/subscription', subscriptionRoutes);
 router.use('/api/stripe', stripeRoutes);
+router.use('/api/usage', usageRoutes);

@@ -1,8 +1,16 @@
 import { Router } from 'express';
 import Stripe from 'stripe';
-import { auth } from '../middleware/auth';
+import { auth } from '../middleware/auth.js';
+import { stripeWebhookMiddleware } from '../middleware/stripe-webhook.js';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+// Initialize Stripe with a function to ensure environment variables are loaded
+function getStripe() {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not set');
+  }
+  return new Stripe(process.env.STRIPE_SECRET_KEY);
+}
+
 export const stripeRoutes = Router();
 
 // Create a Stripe checkout session
@@ -16,6 +24,7 @@ stripeRoutes.post('/create-checkout-session', auth, async (req, res) => {
       clientReferenceId
     } = req.body;
 
+    const stripe = getStripe();
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -42,7 +51,7 @@ stripeRoutes.post('/create-checkout-session', auth, async (req, res) => {
 stripeRoutes.post('/create-portal-session', auth, async (req, res) => {
   try {
     const { customerId, returnUrl } = req.body;
-
+    const stripe = getStripe();
     const session = await stripe.billingPortal.sessions.create({
       customer: customerId,
       return_url: returnUrl,
@@ -59,7 +68,7 @@ stripeRoutes.post('/create-portal-session', auth, async (req, res) => {
 stripeRoutes.post('/update-subscription', auth, async (req, res) => {
   try {
     const { subscriptionId, priceId, quantity } = req.body;
-
+    const stripe = getStripe();
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     
     await stripe.subscriptions.update(subscriptionId, {
@@ -82,7 +91,7 @@ stripeRoutes.post('/update-subscription', auth, async (req, res) => {
 stripeRoutes.post('/cancel-subscription', auth, async (req, res) => {
   try {
     const { subscriptionId, cancelAtPeriodEnd } = req.body;
-
+    const stripe = getStripe();
     const subscription = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: cancelAtPeriodEnd,
     });
@@ -98,7 +107,7 @@ stripeRoutes.post('/cancel-subscription', auth, async (req, res) => {
 stripeRoutes.post('/resume-subscription', auth, async (req, res) => {
   try {
     const { subscriptionId } = req.body;
-
+    const stripe = getStripe();
     const subscription = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: false,
     });
@@ -114,6 +123,7 @@ stripeRoutes.post('/resume-subscription', auth, async (req, res) => {
 stripeRoutes.get('/subscription/:subscriptionId', auth, async (req, res) => {
   try {
     const { subscriptionId } = req.params;
+    const stripe = getStripe();
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     res.json(subscription);
   } catch (error) {
@@ -126,6 +136,7 @@ stripeRoutes.get('/subscription/:subscriptionId', auth, async (req, res) => {
 stripeRoutes.get('/payment-methods/:customerId', auth, async (req, res) => {
   try {
     const { customerId } = req.params;
+    const stripe = getStripe();
     const paymentMethods = await stripe.paymentMethods.list({
       customer: customerId,
       type: 'card',
@@ -141,7 +152,7 @@ stripeRoutes.get('/payment-methods/:customerId', auth, async (req, res) => {
 stripeRoutes.post('/update-payment-method', auth, async (req, res) => {
   try {
     const { customerId, paymentMethodId } = req.body;
-
+    const stripe = getStripe();
     await stripe.customers.update(customerId, {
       invoice_settings: {
         default_payment_method: paymentMethodId,
@@ -159,7 +170,7 @@ stripeRoutes.post('/update-payment-method', auth, async (req, res) => {
 stripeRoutes.get('/upcoming-invoice', auth, async (req, res) => {
   try {
     const { subscriptionId, newPriceId } = req.query;
-
+    const stripe = getStripe();
     const subscription = await stripe.subscriptions.retrieve(subscriptionId);
     const invoice = await stripe.invoices.retrieveUpcoming({
       customer: subscription.customer,
@@ -178,39 +189,8 @@ stripeRoutes.get('/upcoming-invoice', auth, async (req, res) => {
 });
 
 // Webhook handler
-stripeRoutes.post('/webhook', async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-
-  try {
-    const event = stripe.webhooks.constructEvent(
-      req.body,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-
-    // Handle the event
-    switch (event.type) {
-      case 'customer.subscription.created':
-      case 'customer.subscription.updated':
-      case 'customer.subscription.deleted':
-        const subscription = event.data.object;
-        // TODO: Update user's subscription status in database
-        break;
-      case 'invoice.payment_succeeded':
-        const invoice = event.data.object;
-        // TODO: Update user's payment status
-        break;
-      case 'invoice.payment_failed':
-        const failedInvoice = event.data.object;
-        // TODO: Handle failed payment
-        break;
-      default:
-        console.log(`Unhandled event type ${event.type}`);
-    }
-
-    res.json({ received: true });
-  } catch (error) {
-    console.error('Error processing webhook:', error);
-    res.status(400).json({ error: 'Webhook error' });
-  }
+stripeRoutes.post('/webhook', stripeWebhookMiddleware, (req, res) => {
+  // The webhook has been processed by the middleware
+  // We can access the verified event via req.stripeEvent if needed
+  res.json({ received: true });
 });

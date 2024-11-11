@@ -1,25 +1,33 @@
-import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import { clerkClient } from '@clerk/clerk-sdk-node';
 
-const client = new TextToSpeechClient({
-  credentials: {
-    client_email: process.env.GOOGLE_CLIENT_EMAIL,
-    private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    project_id: process.env.GOOGLE_PROJECT_ID,
-  },
-});
-
-export async function validateGoogleCredentials(req, res, next) {
+export const auth = async (req, res, next) => {
   try {
-    // Test the credentials by listing voices
-    await client.listVoices({});
+    // Get the session token from the Authorization header
+    const token = req.headers.authorization?.split(' ')[1];
+    
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided' });
+    }
+
+    // Verify the session token
+    const session = await clerkClient.sessions.verifySession(token);
+    
+    if (!session) {
+      return res.status(401).json({ error: 'Invalid session' });
+    }
+
+    // Add user ID to request object
+    req.auth = {
+      userId: session.userId,
+      sessionId: session.id
+    };
+
     next();
   } catch (error) {
-    console.error('Google Cloud Authentication Error:', error);
-    res.status(500).json({
-      error: {
-        message: 'Failed to authenticate with Google Cloud',
-        details: error.message
-      }
-    });
+    console.error('Authentication error:', error);
+    res.status(401).json({ error: 'Authentication failed' });
   }
-}
+};
+
+// Export auth as requireAuth for backward compatibility
+export const requireAuth = auth;

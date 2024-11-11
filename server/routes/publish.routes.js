@@ -2,6 +2,8 @@ import { Router } from "express";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { auth } from '../middleware/auth.js';
+import { usageService } from '../services/usage.service.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,16 +13,17 @@ export const publishRoutes = Router();
 // Store for user audio files (in production this would be a database)
 const userAudios = new Map();
 
-publishRoutes.post("/", async (req, res) => {
+publishRoutes.post("/", auth, async (req, res) => {
   console.log("Publish request received");
   
   const {
-    userId,
     audioBlob,
     fileName,
     transcript,
     settings
   } = req.body;
+
+  const userId = req.auth.userId;
 
   if (!userId || !audioBlob || !fileName) {
     console.error("Missing required fields:", { userId, fileName, hasAudio: !!audioBlob });
@@ -28,6 +31,17 @@ publishRoutes.post("/", async (req, res) => {
   }
 
   try {
+    // Track API request
+    const requestTracking = await usageService.trackRequest(userId);
+    if (!requestTracking.allowed) {
+      return res.status(429).json({
+        error: {
+          message: 'Rate limit exceeded',
+          details: requestTracking
+        }
+      });
+    }
+
     console.log("Creating user directory...");
     // Create user directory if it doesn't exist
     const userDir = path.join(__dirname, '..', 'audios', userId);
@@ -77,8 +91,34 @@ publishRoutes.post("/", async (req, res) => {
   }
 });
 
-publishRoutes.get("/files/:userId", (req, res) => {
-  const { userId } = req.params;
-  const userFiles = userAudios.get(userId) || [];
-  res.json(userFiles);
+publishRoutes.get("/files/:userId", auth, async (req, res) => {
+  try {
+    const requestedUserId = req.params.userId;
+    const authenticatedUserId = req.auth.userId;
+
+    // Users can only access their own files
+    if (requestedUserId !== authenticatedUserId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    // Track API request
+    const requestTracking = await usageService.trackRequest(authenticatedUserId);
+    if (!requestTracking.allowed) {
+      return res.status(429).json({
+        error: {
+          message: 'Rate limit exceeded',
+          details: requestTracking
+        }
+      });
+    }
+
+    const userFiles = userAudios.get(requestedUserId) || [];
+    res.json(userFiles);
+  } catch (error) {
+    console.error("Error fetching files:", error);
+    res.status(500).json({ 
+      error: "Failed to fetch files",
+      details: error.message 
+    });
+  }
 });

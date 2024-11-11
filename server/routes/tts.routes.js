@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import { auth } from '../middleware/auth.js';
+import { usageService } from '../services/usage.service.js';
 
 export const ttsRoutes = Router();
 
@@ -25,7 +27,7 @@ ttsRoutes.use((req, res, next) => {
   next();
 });
 
-ttsRoutes.get('/voices', async (req, res) => {
+ttsRoutes.get('/voices', auth, async (req, res) => {
   try {
     console.log('Fetching voices...');
     
@@ -59,7 +61,7 @@ ttsRoutes.get('/voices', async (req, res) => {
   }
 });
 
-ttsRoutes.post('/synthesize', async (req, res) => {
+ttsRoutes.post('/synthesize', auth, async (req, res) => {
   try {
     const { text, voice, streaming = false } = req.body;
     
@@ -69,6 +71,27 @@ ttsRoutes.post('/synthesize', async (req, res) => {
       return res.status(400).json({
         error: {
           message: 'Missing required parameters'
+        }
+      });
+    }
+
+    // Track API request and character usage
+    const requestTracking = await usageService.trackRequest(req.auth.userId);
+    if (!requestTracking.allowed) {
+      return res.status(429).json({
+        error: {
+          message: 'Rate limit exceeded',
+          details: requestTracking
+        }
+      });
+    }
+
+    const characterTracking = await usageService.trackCharacters(req.auth.userId, text.length);
+    if (!characterTracking.allowed) {
+      return res.status(429).json({
+        error: {
+          message: 'Character limit exceeded',
+          details: characterTracking
         }
       });
     }

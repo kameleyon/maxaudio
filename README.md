@@ -31,15 +31,24 @@ AudioMax is a sophisticated text-to-speech platform that combines advanced AI ca
   - Secure authentication with Clerk
   - User preferences management
   - Subscription plans with Stripe integration
-  - Usage tracking and analytics
-  - Notification system
+  - Real-time usage tracking and analytics
+  - Smart notification system
 
-- **Subscription Plans**
+- **Subscription Management**
   - Free trial tier with basic features
   - Professional tier for content creators
   - Premium tier for enterprises
   - Flexible monthly/yearly billing
-  - Usage-based limits and monitoring
+  - Real-time usage monitoring
+  - Automatic billing and invoicing
+  - Usage-based limits and alerts
+
+- **Usage Analytics**
+  - Real-time usage tracking
+  - Historical usage data
+  - Usage trend analysis
+  - Subscription tier limits monitoring
+  - Usage alerts and notifications
 
 ## 🏗 Architecture
 
@@ -47,9 +56,9 @@ The application is built with a modern tech stack:
 
 - **Frontend**: React with TypeScript
 - **Styling**: Tailwind CSS + Styled Components
-- **State Management**: React Context
+- **State Management**: React Context + React Query
 - **Authentication**: Clerk Authentication
-- **Payments**: Stripe Integration
+- **Payments**: Stripe Integration with webhooks
 - **Backend**: Node.js with Express
 - **Cloud Services**: Google Cloud TTS, OpenRouter AI
 - **Deployment**: Netlify with Serverless Functions
@@ -67,13 +76,19 @@ The application is built with a modern tech stack:
 │   ├── pages/             # Application pages
 │   ├── services/          # API services
 │   ├── contexts/          # React contexts
+│   ├── hooks/             # Custom hooks
 │   └── types/             # TypeScript definitions
-├── server/                # Backend server
-│   ├── routes/           # API routes
-│   ├── services/         # Business logic
-│   └── middleware/       # Custom middleware
-├── scripts/              # Utility scripts
-└── netlify/              # Serverless functions
+├── server/
+│   ├── routes/            # API routes
+│   ├── services/          # Business logic
+│   │   ├── usage.service.js    # Usage tracking
+│   │   └── subscription.service.js # Subscription management
+│   └── middleware/
+│       ├── auth.js        # Authentication middleware
+│       ├── stripe-webhook.js # Stripe webhook handling
+│       └── usage-limits.js   # Usage limits enforcement
+├── scripts/               # Utility scripts
+└── netlify/               # Serverless functions
 ```
 
 ## 🚀 Getting Started
@@ -149,13 +164,6 @@ npm run setup-stripe
 npm run dev
 ```
 
-4. Start backend server:
-```bash
-cd server
-npm install
-npm start
-```
-
 ## 🏗 Building for Production
 
 ```bash
@@ -182,7 +190,45 @@ The build command creates a production-ready build in the `dist` directory.
 
 3. Set up Stripe webhook:
    - Create a webhook in Stripe dashboard pointing to your Netlify function URL
+   - Configure webhook to listen for these events:
+     * customer.subscription.created
+     * customer.subscription.updated
+     * customer.subscription.deleted
+     * customer.subscription.trial_will_end
+     * invoice.payment_succeeded
+     * invoice.payment_failed
+     * payment_intent.succeeded
+     * payment_intent.payment_failed
+     * customer.created
+     * customer.updated
    - Add the webhook secret to your environment variables
+   - Test webhook with Stripe CLI
+
+### Stripe Integration Features
+
+- **Subscription Management**
+  - Automatic subscription creation and updates
+  - Trial period handling
+  - Subscription cancellation and reactivation
+  - Proration handling for plan changes
+
+- **Payment Processing**
+  - Secure payment handling
+  - Failed payment recovery
+  - Automatic retries
+  - Payment method updates
+
+- **Usage Tracking**
+  - Real-time usage monitoring
+  - Usage-based billing
+  - Usage limits enforcement
+  - Usage analytics and trends
+
+- **Webhook Handling**
+  - Robust webhook processing
+  - Automatic retries for failed webhooks
+  - Comprehensive event handling
+  - Error recovery mechanisms
 
 ## 🤝 Contributing
 

@@ -1,81 +1,112 @@
-import { useState, useEffect } from 'react'
-import axios from 'axios'
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMemo } from 'react';
 
-export interface UsageStats {
+interface UsageStats {
   current: {
-    charactersUsed: number
-    voiceClones: number
-    requestsThisMinute: number
-  }
+    charactersUsed: number;
+    voiceClones: number;
+    requestsThisMinute: number;
+  };
   limits: {
-    requestsPerMinute: number
-    charactersPerMonth: number
-    voiceClones: number
-  }
+    requestsPerMinute: number;
+    charactersPerMonth: number;
+    voiceClones: number;
+  };
   remaining: {
-    charactersPerMonth: number
-    voiceClones: number
-    requestsPerMinute: number
-  }
+    charactersPerMonth: number;
+    voiceClones: number;
+    requestsPerMinute: number;
+  };
+  trends: {
+    daily: Array<{
+      date: string;
+      charactersUsed: number;
+      requestCount: number;
+      voiceClones: number;
+    }>;
+    averages: {
+      charactersPerDay: number;
+      requestsPerDay: number;
+    };
+  };
+  lastUpdated: string;
 }
 
-export function useUsageStats() {
-  const [stats, setStats] = useState<UsageStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchStats = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const response = await axios.get('/api/audio/usage-stats')
-      setStats(response.data)
-    } catch (err) {
-      console.error('Error fetching usage stats:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch usage statistics')
-    } finally {
-      setLoading(false)
-    }
+const fetchUsageStats = async (): Promise<UsageStats> => {
+  const response = await fetch('/api/usage/stats');
+  if (!response.ok) {
+    throw new Error('Failed to fetch usage stats');
   }
+  return response.json();
+};
 
-  // Fetch stats on mount and every minute
-  useEffect(() => {
-    fetchStats()
-    const interval = setInterval(fetchStats, 60000)
-    return () => clearInterval(interval)
-  }, [])
+export const useUsageStats = () => {
+  const queryClient = useQueryClient();
 
-  // Calculate percentage used for each limit
-  const getUsagePercentage = (current: number, limit: number) => {
-    return Math.min(Math.round((current / limit) * 100), 100)
-  }
+  const { data: stats, isLoading, error } = useQuery({
+    queryKey: ['usageStats'],
+    queryFn: fetchUsageStats,
+    refetchInterval: 60000, // Refresh every minute
+  });
 
-  // Check if approaching limits (80% or more)
-  const checkLimits = () => {
-    if (!stats) return null
+  const formattedData = useMemo(() => {
+    if (!stats) return null;
 
-    const warnings = []
-    const { current, limits } = stats
+    // Calculate percentages
+    const percentages = {
+      characters: (stats.current.charactersUsed / stats.limits.charactersPerMonth) * 100,
+      voiceClones: (stats.current.voiceClones / stats.limits.voiceClones) * 100,
+      requests: (stats.current.requestsThisMinute / stats.limits.requestsPerMinute) * 100,
+    };
 
-    if (getUsagePercentage(current.charactersUsed, limits.charactersPerMonth) >= 80) {
-      warnings.push('Approaching monthly character limit')
-    }
-    if (getUsagePercentage(current.voiceClones, limits.voiceClones) >= 80) {
-      warnings.push('Approaching voice clone limit')
-    }
-    if (getUsagePercentage(current.requestsThisMinute, limits.requestsPerMinute) >= 80) {
-      warnings.push('Approaching rate limit')
-    }
+    // Format trend data for charts
+    const chartData = stats.trends.daily.map(day => ({
+      date: new Date(day.date).toLocaleDateString(),
+      Characters: day.charactersUsed,
+      Requests: day.requestCount,
+      'Voice Clones': day.voiceClones,
+    }));
 
-    return warnings.length > 0 ? warnings : null
-  }
+    // Calculate usage by category
+    const categories = [
+      {
+        name: 'Characters',
+        used: stats.current.charactersUsed,
+        total: stats.limits.charactersPerMonth,
+        percentage: percentages.characters,
+      },
+      {
+        name: 'Voice Clones',
+        used: stats.current.voiceClones,
+        total: stats.limits.voiceClones,
+        percentage: percentages.voiceClones,
+      },
+      {
+        name: 'API Requests',
+        used: stats.current.requestsThisMinute,
+        total: stats.limits.requestsPerMinute,
+        percentage: percentages.requests,
+      },
+    ];
+
+    return {
+      raw: stats,
+      percentages,
+      chartData,
+      categories,
+      lastUpdated: new Date(stats.lastUpdated).toLocaleString(),
+    };
+  }, [stats]);
+
+  // Function to manually refresh stats
+  const refreshStats = () => {
+    queryClient.invalidateQueries({ queryKey: ['usageStats'] });
+  };
 
   return {
-    stats,
-    loading,
+    stats: formattedData,
+    isLoading,
     error,
-    refresh: fetchStats,
-    getUsagePercentage,
-    warnings: checkLimits()
-  }
-}
+    refreshStats,
+  };
+};
