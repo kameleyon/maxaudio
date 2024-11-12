@@ -1,94 +1,172 @@
-// Load environment variables first, before any other imports
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-// Get directory path for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-// Load environment variables from the root directory
-dotenv.config({ path: join(__dirname, '..', '.env') });
-
-// Now import everything else
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import { router } from './routes/index.js';
-import { errorHandler } from './middleware/errorHandler.js';
-import { stripeWebhookMiddleware } from './middleware/stripe-webhook.js';
-
-// Verify required environment variables
-const requiredEnvVars = [
-  'STRIPE_SECRET_KEY',
-  'VITE_CLERK_PUBLISHABLE_KEY',
-  'CLERK_SECRET_KEY',
-  'GOOGLE_PROJECT_ID',
-  'GOOGLE_CLIENT_EMAIL',
-  'GOOGLE_PRIVATE_KEY'
-];
-
-// Optional environment variables for development
-const optionalEnvVars = [
-  'STRIPE_WEBHOOK_SECRET' // Optional in development, required in production
-];
-
-// Check required environment variables
-for (const envVar of requiredEnvVars) {
-  if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
-  }
-}
-
-// Warn about missing optional variables
-for (const envVar of optionalEnvVars) {
-  if (!process.env[envVar]) {
-    console.warn(`Warning: Optional environment variable ${envVar} is not set`);
-  }
-}
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const { connect: connectDb, disconnect: disconnectDb } = require('./config/database');
 
 const app = express();
-const port = process.env.PORT || 3000;
-
-// Basic security headers
-app.use(helmet());
+const PORT = process.env.PORT || 3000;
+const isDevelopment = process.env.NODE_ENV === 'development';
 
 // CORS configuration
-app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+const corsOptions = {
+  origin: isDevelopment 
+    ? ['http://localhost:5173', 'http://127.0.0.1:5173']
+    : [process.env.PRODUCTION_CLIENT_URL],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
   credentials: true,
-  exposedHeaders: ['stripe-signature'] // Allow Stripe signature header
+  maxAge: 86400 // 24 hours
+};
+
+// Middleware
+app.use(cors(corsOptions));
+app.use(helmet({
+  contentSecurityPolicy: isDevelopment ? false : {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://js.stripe.com'],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'", 'https://api.stripe.com'],
+      frameSrc: ["'self'", 'https://js.stripe.com'],
+      objectSrc: ["'none'"],
+      upgradeInsecureRequests: []
+    }
+  },
+  crossOriginEmbedderPolicy: false
 }));
+app.use(morgan('dev'));
 
-// Handle Stripe webhooks before body parsing
-if (process.env.STRIPE_WEBHOOK_SECRET) {
-  app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }), stripeWebhookMiddleware);
-} else {
-  console.warn('Stripe webhook endpoint disabled - STRIPE_WEBHOOK_SECRET not set');
-}
+// Parse raw body for Stripe webhooks
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 
-// Body parsing for regular routes
+// Parse JSON body for other routes
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
-// API routes
-app.use('/api', router);
-
-// Error handling
-app.use(errorHandler);
-
-// Start server
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
-  console.log(`CORS origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-  console.log('Environment variables loaded:', {
-    stripeKey: process.env.STRIPE_SECRET_KEY ? '✓' : '✗',
-    stripeWebhook: process.env.STRIPE_WEBHOOK_SECRET ? '✓' : '✗',
-    clerkPublishable: process.env.VITE_CLERK_PUBLISHABLE_KEY ? '✓' : '✗',
-    clerkSecret: process.env.CLERK_SECRET_KEY ? '✓' : '✗',
-    googleProjectId: process.env.GOOGLE_PROJECT_ID ? '✓' : '✗',
-    googleEmail: process.env.GOOGLE_CLIENT_EMAIL ? '✓' : '✗',
-    googleKey: process.env.GOOGLE_PRIVATE_KEY ? '✓' : '✗'
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    timestamp: new Date(),
+    environment: process.env.NODE_ENV
   });
 });
+
+// Routes
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/files', require('./routes/files.routes'));
+app.use('/api/usage', require('./routes/usage.routes'));
+app.use('/api/stripe', require('./routes/stripe.routes'));
+app.use('/api/subscription', require('./routes/subscription.routes'));
+app.use('/api/tts', require('./routes/tts.routes'));
+app.use('/api/user', require('./routes/user.routes'));
+
+// Error handling
+app.use((err, req, res, next) => {
+  console.error('Error:', {
+    message: err.message,
+    stack: isDevelopment ? err.stack : undefined,
+    path: req.path,
+    method: req.method,
+    body: req.body,
+    query: req.query,
+    params: req.params,
+    headers: req.headers
+  });
+
+  // Handle Stripe errors
+  if (err.type?.startsWith('Stripe')) {
+    return res.status(402).json({
+      error: {
+        message: err.message,
+        type: err.type,
+        code: err.code
+      }
+    });
+  }
+
+  // Handle validation errors
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({
+      error: {
+        message: 'Validation Error',
+        details: err.errors
+      }
+    });
+  }
+
+  // Handle authentication errors
+  if (err.name === 'UnauthorizedError') {
+    return res.status(401).json({
+      error: {
+        message: 'Authentication required'
+      }
+    });
+  }
+
+  // Handle not found errors
+  if (err.name === 'NotFoundError') {
+    return res.status(404).json({
+      error: {
+        message: err.message || 'Resource not found'
+      }
+    });
+  }
+
+  // Handle all other errors
+  res.status(err.status || 500).json({ 
+    error: {
+      message: isDevelopment ? err.message : 'Internal Server Error',
+      ...(isDevelopment && { stack: err.stack })
+    }
+  });
+});
+
+// Start server
+async function startServer() {
+  try {
+    // Connect to database
+    await connectDb();
+
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+      console.log(`CORS enabled for: ${corsOptions.origin.join(', ')}`);
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+}
+
+// Handle graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  await disconnectDb();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  await disconnectDb();
+  process.exit(0);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  disconnectDb().then(() => process.exit(1));
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  disconnectDb().then(() => process.exit(1));
+});
+
+// Start the server
+startServer();

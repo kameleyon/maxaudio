@@ -1,224 +1,206 @@
-import { Router } from 'express';
-import { auth } from '../middleware/auth.js';
-import { rateLimit } from 'express-rate-limit';
-import { subscriptionService } from '../services/subscription.service.js';
-import { usageService } from '../services/usage.service.js';
-import { clerkClient } from '@clerk/clerk-sdk-node';
-import Stripe from 'stripe';
+const express = require('express');
+const router = express.Router();
+const { requireAuth } = require('../middleware/auth');
+const subscriptionService = require('../services/subscription.service');
+const notificationService = require('../services/notification.service');
 
-// Initialize Stripe with a function to ensure environment variables are loaded
-function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not set');
-  }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
-}
-
-export const subscriptionRoutes = Router();
-
-// Rate limiting middleware for subscription endpoints
-const subscriptionLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
-});
-
-// Apply rate limiting to all subscription routes
-subscriptionRoutes.use(subscriptionLimiter);
-
-// Get current subscription
-subscriptionRoutes.get('/current', auth, async (req, res) => {
+// Get subscription status
+router.get('/status', requireAuth, async (req, res) => {
   try {
-    const subscription = await subscriptionService.getCurrentSubscription(req.auth.userId);
-    const usage = await subscriptionService.getSubscriptionUsage(req.auth.userId);
-    
-    res.json({
-      ...subscription,
-      usage
+    const subscription = await subscriptionService.getSubscription(req.user.id);
+    res.json(subscription || {
+      status: 'inactive',
+      plan: 'free',
+      features: {
+        maxStorage: 1024 * 1024 * 100, // 100MB
+        maxRequests: 100,
+        maxAudioLength: 60, // 1 minute
+        voiceCloning: false,
+        customVoices: false,
+        priority: false
+      }
     });
   } catch (error) {
-    console.error('Error fetching subscription:', error);
-    res.status(500).json({ error: 'Failed to fetch subscription details' });
+    console.error('Error getting subscription status:', error);
+    res.status(500).json({ error: 'Failed to get subscription status' });
   }
 });
 
-// Get usage statistics
-subscriptionRoutes.get('/usage', auth, async (req, res) => {
+// Get payment methods
+router.get('/payment-methods', requireAuth, async (req, res) => {
   try {
-    const usage = await usageService.getUsageStats(req.auth.userId);
-    res.json(usage);
+    const methods = await subscriptionService.getPaymentMethods(req.user.id);
+    res.json(methods);
   } catch (error) {
-    console.error('Error fetching usage stats:', error);
-    res.status(500).json({ error: 'Failed to fetch usage statistics' });
+    console.error('Error getting payment methods:', error);
+    res.status(500).json({ error: 'Failed to get payment methods' });
   }
 });
 
-// Change subscription plan
-subscriptionRoutes.post('/change-plan', auth, async (req, res) => {
+// Get payment history
+router.get('/payment-history', requireAuth, async (req, res) => {
   try {
-    const { priceId } = req.body;
-    const subscription = await subscriptionService.createOrUpdateSubscription(
-      req.auth.userId,
-      priceId
-    );
-    res.json(subscription);
+    const { status, startDate, endDate, limit } = req.query;
+    const payments = await subscriptionService.getPaymentHistory(req.user.id, {
+      status,
+      startDate: startDate ? new Date(startDate) : undefined,
+      endDate: endDate ? new Date(endDate) : undefined,
+      limit: limit ? parseInt(limit) : undefined
+    });
+    res.json(payments);
   } catch (error) {
-    console.error('Error changing subscription:', error);
-    res.status(500).json({ error: 'Failed to change subscription plan' });
-  }
-});
-
-// Cancel subscription
-subscriptionRoutes.post('/cancel', auth, async (req, res) => {
-  try {
-    const subscription = await subscriptionService.cancelSubscription(req.auth.userId);
-    res.json(subscription);
-  } catch (error) {
-    console.error('Error canceling subscription:', error);
-    res.status(500).json({ error: 'Failed to cancel subscription' });
-  }
-});
-
-// Reactivate subscription
-subscriptionRoutes.post('/reactivate', auth, async (req, res) => {
-  try {
-    const { priceId } = req.body;
-    const subscription = await subscriptionService.createOrUpdateSubscription(
-      req.auth.userId,
-      priceId
-    );
-    res.json(subscription);
-  } catch (error) {
-    console.error('Error reactivating subscription:', error);
-    res.status(500).json({ error: 'Failed to reactivate subscription' });
+    console.error('Error getting payment history:', error);
+    res.status(500).json({ error: 'Failed to get payment history' });
   }
 });
 
 // Update payment method
-subscriptionRoutes.post('/update-payment', auth, async (req, res) => {
+router.post('/payment-methods', requireAuth, async (req, res) => {
   try {
-    const { paymentMethodId } = req.body;
-    const stripe = getStripe();
-    const user = await clerkClient.users.getUser(req.auth.userId);
-    const customerId = user.publicMetadata.stripeCustomerId;
-
-    if (!customerId) {
-      throw new Error('No Stripe customer found');
-    }
-
-    await stripe.paymentMethods.attach(paymentMethodId, {
-      customer: customerId,
-    });
-
-    await stripe.customers.update(customerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId,
-      },
-    });
-
-    res.json({
-      success: true,
-      message: 'Payment method updated successfully'
-    });
+    const { paymentMethodId, isDefault } = req.body;
+    await subscriptionService.updatePaymentMethod(
+      req.user.id,
+      paymentMethodId,
+      isDefault
+    );
+    res.json({ success: true });
   } catch (error) {
     console.error('Error updating payment method:', error);
     res.status(500).json({ error: 'Failed to update payment method' });
   }
 });
 
-// Get invoices
-subscriptionRoutes.get('/invoices', auth, async (req, res) => {
+// Remove payment method
+router.delete('/payment-methods/:methodId', requireAuth, async (req, res) => {
   try {
-    const { limit = 10, starting_after } = req.query;
-    const stripe = getStripe();
-    const user = await clerkClient.users.getUser(req.auth.userId);
-    const customerId = user.publicMetadata.stripeCustomerId;
-
-    if (!customerId) {
-      return res.json([]);
-    }
-
-    const invoices = await stripe.invoices.list({
-      customer: customerId,
-      limit: Number(limit),
-      starting_after: starting_after || undefined,
-    });
-
-    res.json(invoices.data);
+    await subscriptionService.removePaymentMethod(req.user.id, req.params.methodId);
+    res.status(204).send();
   } catch (error) {
-    console.error('Error fetching invoices:', error);
-    res.status(500).json({ error: 'Failed to fetch invoices' });
+    console.error('Error removing payment method:', error);
+    res.status(500).json({ error: 'Failed to remove payment method' });
   }
 });
 
-// Create checkout session
-subscriptionRoutes.post('/create-checkout', auth, async (req, res) => {
+// Get notification preferences
+router.get('/notifications', requireAuth, async (req, res) => {
   try {
-    const { priceId } = req.body;
-    const stripe = getStripe();
-    const user = await clerkClient.users.getUser(req.auth.userId);
-    
-    const session = await stripe.checkout.sessions.create({
-      customer_email: user.emailAddresses[0].emailAddress,
-      client_reference_id: req.auth.userId,
-      payment_method_types: ['card'],
-      mode: 'subscription',
-      line_items: [
-        {
-          price: priceId,
-          quantity: 1,
-        },
-      ],
-      success_url: `${process.env.CLIENT_URL}/settings?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.CLIENT_URL}/settings`,
-    });
-
-    res.json({ sessionUrl: session.url });
+    const preferences = await notificationService.getNotificationPreferences(req.user.id);
+    res.json(preferences);
   } catch (error) {
-    console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
+    console.error('Error getting notification preferences:', error);
+    res.status(500).json({ error: 'Failed to get notification preferences' });
   }
 });
 
-// Create customer portal session
-subscriptionRoutes.post('/create-portal', auth, async (req, res) => {
+// Update notification preferences
+router.put('/notifications', requireAuth, async (req, res) => {
   try {
-    const stripe = getStripe();
-    const user = await clerkClient.users.getUser(req.auth.userId);
-    const customerId = user.publicMetadata.stripeCustomerId;
-
-    if (!customerId) {
-      throw new Error('No Stripe customer found');
-    }
-
-    const session = await stripe.billingPortal.sessions.create({
-      customer: customerId,
-      return_url: `${process.env.CLIENT_URL}/settings`,
-    });
-
-    res.json({ url: session.url });
+    const { preferences } = req.body;
+    await notificationService.updateNotificationPreferences(req.user.id, preferences);
+    res.json({ success: true });
   } catch (error) {
-    console.error('Error creating portal session:', error);
-    res.status(500).json({ error: 'Failed to create portal session' });
+    console.error('Error updating notification preferences:', error);
+    res.status(500).json({ error: 'Failed to update notification preferences' });
   }
 });
 
-// Track usage
-subscriptionRoutes.post('/track-usage', auth, async (req, res) => {
+// Get usage statistics
+router.get('/usage', requireAuth, async (req, res) => {
   try {
-    const { characters, voiceClone } = req.body;
-    let result;
+    const user = await subscriptionService.getUser(req.user.id);
+    const subscription = await subscriptionService.getSubscription(req.user.id);
 
-    if (characters) {
-      result = await usageService.trackCharacters(req.auth.userId, characters);
+    const usage = {
+      ...user.usage,
+      limits: subscription?.features || {
+        maxStorage: 1024 * 1024 * 100, // 100MB
+        maxRequests: 100,
+        maxAudioLength: 60 // 1 minute
+      },
+      percentages: {
+        storage: (user.usage.storage / (subscription?.features?.maxStorage || 1024 * 1024 * 100)) * 100,
+        requests: (user.usage.requests / (subscription?.features?.maxRequests || 100)) * 100
+      }
+    };
+
+    // Check if we need to send usage warnings
+    if (usage.percentages.storage >= 90) {
+      await notificationService.sendUsageLimitWarning(
+        req.user.id,
+        'storage',
+        user.usage.storage,
+        subscription?.features?.maxStorage || 1024 * 1024 * 100
+      );
     }
 
-    if (voiceClone) {
-      result = await usageService.trackVoiceClone(req.auth.userId);
+    if (usage.percentages.requests >= 90) {
+      await notificationService.sendUsageLimitWarning(
+        req.user.id,
+        'requests',
+        user.usage.requests,
+        subscription?.features?.maxRequests || 100
+      );
     }
 
-    res.json(result);
+    res.json(usage);
   } catch (error) {
-    console.error('Error tracking usage:', error);
-    res.status(500).json({ error: 'Failed to track usage' });
+    console.error('Error getting usage statistics:', error);
+    res.status(500).json({ error: 'Failed to get usage statistics' });
   }
 });
+
+// Check feature access
+router.get('/features/:feature', requireAuth, async (req, res) => {
+  try {
+    const user = await subscriptionService.getUser(req.user.id);
+    const hasAccess = user.canAccess(req.params.feature);
+    res.json({ hasAccess });
+  } catch (error) {
+    console.error('Error checking feature access:', error);
+    res.status(500).json({ error: 'Failed to check feature access' });
+  }
+});
+
+// Check usage limits
+router.get('/limits', requireAuth, async (req, res) => {
+  try {
+    const user = await subscriptionService.getUser(req.user.id);
+    const withinLimits = user.withinUsageLimits();
+    res.json({ withinLimits });
+  } catch (error) {
+    console.error('Error checking usage limits:', error);
+    res.status(500).json({ error: 'Failed to check usage limits' });
+  }
+});
+
+// Update usage
+router.post('/usage/:type', requireAuth, async (req, res) => {
+  try {
+    const { type } = req.params;
+    const { amount } = req.body;
+
+    const user = await subscriptionService.getUser(req.user.id);
+    await user.updateUsage(type, amount);
+
+    // Check if we need to send a warning
+    const subscription = await subscriptionService.getSubscription(req.user.id);
+    const limit = subscription?.features?.[`max${type.charAt(0).toUpperCase() + type.slice(1)}`] || 
+      (type === 'storage' ? 1024 * 1024 * 100 : 100);
+
+    if ((user.usage[type] / limit) >= 0.9) {
+      await notificationService.sendUsageLimitWarning(
+        req.user.id,
+        type,
+        user.usage[type],
+        limit
+      );
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Error updating usage:', error);
+    res.status(500).json({ error: 'Failed to update usage' });
+  }
+});
+
+module.exports = router;

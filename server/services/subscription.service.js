@@ -1,200 +1,375 @@
-import { clerkClient } from '@clerk/clerk-sdk-node';
-import Stripe from 'stripe';
-
-// Initialize Stripe with a function to ensure environment variables are loaded
-function getStripe() {
-  if (!process.env.STRIPE_SECRET_KEY) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not set');
-  }
-  return new Stripe(process.env.STRIPE_SECRET_KEY);
-}
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const User = require('../models/user.model');
+const Payment = require('../models/payment.model');
+const notificationService = require('./notification.service');
 
 class SubscriptionService {
-  // Get user's current subscription
-  async getCurrentSubscription(userId) {
+  /**
+   * Get user
+   */
+  async getUser(userId) {
     try {
-      const user = await clerkClient.users.getUser(userId);
-      const subscriptionId = user.publicMetadata.subscriptionId;
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+      return user;
+    } catch (error) {
+      console.error('Error getting user:', error);
+      throw error;
+    }
+  }
 
-      if (!subscriptionId) {
+  /**
+   * Update user subscription status
+   */
+  async updateSubscription(userId, subscription) {
+    try {
+      const planId = subscription.items.data[0].price.id;
+      const status = subscription.status;
+      const currentPeriodEnd = new Date(subscription.current_period_end * 1000);
+      const cancelAtPeriodEnd = subscription.cancel_at_period_end;
+
+      // Get plan details
+      const price = await stripe.prices.retrieve(planId, {
+        expand: ['product']
+      });
+
+      // Parse features from product metadata
+      const features = price.product.metadata.features ? 
+        JSON.parse(price.product.metadata.features) : {};
+
+      // Update user subscription
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          'subscription.planId': planId,
+          'subscription.status': status,
+          'subscription.currentPeriodEnd': currentPeriodEnd,
+          'subscription.cancelAtPeriodEnd': cancelAtPeriodEnd,
+          'subscription.features': features,
+          'subscription.updatedAt': new Date()
+        }
+      });
+
+      // Send notification
+      await notificationService.sendSubscriptionNotification(
+        userId,
+        subscription.status === 'active' ? 'subscription_created' : 'subscription_updated',
+        {
+          planName: price.product.name,
+          currentPeriodEnd
+        }
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle subscription cancellation
+   */
+  async handleCancellation(userId, subscription) {
+    try {
+      const endDate = new Date(subscription.current_period_end * 1000);
+
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          'subscription.status': 'canceled',
+          'subscription.canceledAt': new Date(),
+          'subscription.endDate': endDate,
+          'subscription.updatedAt': new Date()
+        }
+      });
+
+      // Send notification
+      await notificationService.sendSubscriptionNotification(
+        userId,
+        'subscription_canceled',
+        { endDate }
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error handling subscription cancellation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Record payment
+   */
+  async recordPayment(userId, invoice) {
+    try {
+      // Get payment method details if available
+      let paymentMethod;
+      if (invoice.payment_intent?.payment_method) {
+        paymentMethod = await stripe.paymentMethods.retrieve(
+          invoice.payment_intent.payment_method
+        );
+      }
+
+      const payment = new Payment({
+        userId,
+        invoiceId: invoice.id,
+        amount: invoice.amount_paid,
+        currency: invoice.currency,
+        status: invoice.status,
+        date: new Date(invoice.created * 1000),
+        description: invoice.description,
+        hostedUrl: invoice.hosted_invoice_url,
+        pdfUrl: invoice.invoice_pdf,
+        subscription: invoice.subscription ? {
+          id: invoice.subscription.id,
+          status: invoice.subscription.status,
+          interval: invoice.subscription.items.data[0].price.recurring.interval
+        } : undefined,
+        paymentIntent: invoice.payment_intent ? {
+          id: invoice.payment_intent.id,
+          status: invoice.payment_intent.status
+        } : undefined,
+        paymentMethod: paymentMethod ? {
+          id: paymentMethod.id,
+          brand: paymentMethod.card.brand,
+          last4: paymentMethod.card.last4,
+          expMonth: paymentMethod.card.exp_month,
+          expYear: paymentMethod.card.exp_year
+        } : undefined,
+        billingDetails: invoice.customer_address ? {
+          name: invoice.customer_name,
+          email: invoice.customer_email,
+          address: invoice.customer_address
+        } : undefined,
+        metadata: invoice.metadata
+      });
+
+      await payment.save();
+
+      // Send notification
+      await notificationService.sendSubscriptionNotification(
+        userId,
+        'payment_succeeded',
+        {
+          amount: invoice.amount_paid,
+          currency: invoice.currency,
+          hostedUrl: invoice.hosted_invoice_url
+        }
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle failed payment
+   */
+  async handleFailedPayment(userId, invoice) {
+    try {
+      // Record failed payment
+      await this.recordPayment(userId, invoice);
+
+      // Update subscription status
+      await User.findByIdAndUpdate(userId, {
+        $set: {
+          'subscription.status': 'past_due',
+          'subscription.updatedAt': new Date()
+        }
+      });
+
+      // Send notification
+      await notificationService.sendSubscriptionNotification(
+        userId,
+        'payment_failed',
+        {
+          amount: invoice.amount_due,
+          currency: invoice.currency
+        }
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error handling failed payment:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update customer payment method
+   */
+  async updatePaymentMethod(userId, paymentMethodId, isDefault = false) {
+    try {
+      const user = await User.findById(userId);
+      
+      if (!user.stripeCustomerId) {
+        throw new Error('User has no Stripe customer ID');
+      }
+
+      // Attach payment method to customer
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: user.stripeCustomerId
+      });
+
+      if (isDefault) {
+        // Set as default payment method
+        await stripe.customers.update(user.stripeCustomerId, {
+          invoice_settings: {
+            default_payment_method: paymentMethodId
+          }
+        });
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Remove payment method
+   */
+  async removePaymentMethod(userId, paymentMethodId) {
+    try {
+      const user = await User.findById(userId);
+      
+      if (!user.stripeCustomerId) {
+        throw new Error('User has no Stripe customer ID');
+      }
+
+      const paymentMethod = await stripe.paymentMethods.retrieve(paymentMethodId);
+      
+      if (paymentMethod.customer !== user.stripeCustomerId) {
+        throw new Error('Payment method does not belong to user');
+      }
+
+      await stripe.paymentMethods.detach(paymentMethodId);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing payment method:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get subscription
+   */
+  async getSubscription(userId) {
+    try {
+      const user = await User.findById(userId);
+
+      if (!user || !user.stripeCustomerId) {
         return null;
       }
 
-      const stripe = getStripe();
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      return subscription;
+      // Get latest subscription from Stripe
+      const subscriptions = await stripe.subscriptions.list({
+        customer: user.stripeCustomerId,
+        limit: 1,
+        status: 'active'
+      });
+
+      if (subscriptions.data.length === 0) {
+        return null;
+      }
+
+      const subscription = subscriptions.data[0];
+      const price = await stripe.prices.retrieve(subscription.items.data[0].price.id, {
+        expand: ['product']
+      });
+
+      return {
+        id: subscription.id,
+        status: subscription.status,
+        planId: price.id,
+        planName: price.product.name,
+        interval: price.recurring.interval,
+        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
+        cancelAtPeriodEnd: subscription.cancel_at_period_end,
+        features: price.product.metadata.features ? 
+          JSON.parse(price.product.metadata.features) : {},
+        metadata: subscription.metadata
+      };
     } catch (error) {
       console.error('Error getting subscription:', error);
       throw error;
     }
   }
 
-  // Get subscription tier limits
-  getTierLimits(tier) {
-    const limits = {
-      pro: {
-        requestsPerMinute: 15,
-        charactersPerMonth: 1000000,
-        voiceClones: 3
-      },
-      premium: {
-        requestsPerMinute: 30,
-        charactersPerMonth: 3000000,
-        voiceClones: 10
-      },
-      free: {
-        requestsPerMinute: 5,
-        charactersPerMonth: 10000,
-        voiceClones: 0
-      }
-    };
-
-    return limits[tier] || limits.free;
-  }
-
-  // Check if user has active subscription
-  async hasActiveSubscription(userId) {
+  /**
+   * Get payment methods
+   */
+  async getPaymentMethods(userId) {
     try {
-      const subscription = await this.getCurrentSubscription(userId);
-      return subscription?.status === 'active' || subscription?.status === 'trialing';
-    } catch (error) {
-      console.error('Error checking subscription status:', error);
-      return false;
-    }
-  }
+      const user = await User.findById(userId);
 
-  // Get user's subscription tier
-  async getUserTier(userId) {
-    try {
-      const subscription = await this.getCurrentSubscription(userId);
-      
-      if (!subscription) {
-        return 'free';
+      if (!user || !user.stripeCustomerId) {
+        return [];
       }
 
-      const price = subscription.items.data[0].price;
-      return price.lookup_key || 'free';
-    } catch (error) {
-      console.error('Error getting user tier:', error);
-      return 'free';
-    }
-  }
-
-  // Create or update subscription
-  async createOrUpdateSubscription(userId, priceId) {
-    try {
-      const stripe = getStripe();
-      const user = await clerkClient.users.getUser(userId);
-      let customerId = user.publicMetadata.stripeCustomerId;
-
-      // Create customer if doesn't exist
-      if (!customerId) {
-        const customer = await stripe.customers.create({
-          email: user.emailAddresses[0].emailAddress,
-          metadata: {
-            userId: userId
-          }
-        });
-        customerId = customer.id;
-
-        // Update user metadata with customer ID
-        await clerkClient.users.updateUser(userId, {
-          publicMetadata: {
-            ...user.publicMetadata,
-            stripeCustomerId: customerId
-          }
-        });
-      }
-
-      const currentSubscription = await this.getCurrentSubscription(userId);
-
-      if (currentSubscription) {
-        // Update existing subscription
-        const subscription = await stripe.subscriptions.update(
-          currentSubscription.id,
-          {
-            items: [{
-              id: currentSubscription.items.data[0].id,
-              price: priceId
-            }],
-            proration_behavior: 'create_prorations'
-          }
-        );
-        return subscription;
-      } else {
-        // Create new subscription
-        const subscription = await stripe.subscriptions.create({
-          customer: customerId,
-          items: [{ price: priceId }],
-          metadata: {
-            userId: userId
-          }
-        });
-
-        // Update user metadata with subscription ID
-        await clerkClient.users.updateUser(userId, {
-          publicMetadata: {
-            ...user.publicMetadata,
-            subscriptionId: subscription.id
-          }
-        });
-
-        return subscription;
-      }
-    } catch (error) {
-      console.error('Error creating/updating subscription:', error);
-      throw error;
-    }
-  }
-
-  // Cancel subscription
-  async cancelSubscription(userId) {
-    try {
-      const stripe = getStripe();
-      const subscription = await this.getCurrentSubscription(userId);
-      
-      if (!subscription) {
-        throw new Error('No active subscription found');
-      }
-
-      const canceledSubscription = await stripe.subscriptions.del(subscription.id);
-
-      // Update user metadata
-      const user = await clerkClient.users.getUser(userId);
-      await clerkClient.users.updateUser(userId, {
-        publicMetadata: {
-          ...user.publicMetadata,
-          subscriptionId: null
-        }
+      const paymentMethods = await stripe.paymentMethods.list({
+        customer: user.stripeCustomerId,
+        type: 'card'
       });
 
-      return canceledSubscription;
+      const customer = await stripe.customers.retrieve(user.stripeCustomerId);
+      const defaultPaymentMethodId = customer.invoice_settings.default_payment_method;
+
+      return paymentMethods.data.map(method => ({
+        id: method.id,
+        brand: method.card.brand,
+        last4: method.card.last4,
+        expMonth: method.card.exp_month,
+        expYear: method.card.exp_year,
+        isDefault: method.id === defaultPaymentMethodId,
+        billingDetails: method.billing_details
+      }));
     } catch (error) {
-      console.error('Error canceling subscription:', error);
+      console.error('Error getting payment methods:', error);
       throw error;
     }
   }
 
-  // Get subscription usage
-  async getSubscriptionUsage(userId) {
+  /**
+   * Get payment history
+   */
+  async getPaymentHistory(userId, options = {}) {
     try {
-      const user = await clerkClient.users.getUser(userId);
-      const tier = await this.getUserTier(userId);
-      const limits = this.getTierLimits(tier);
+      const payments = await Payment.findByUserId(userId, {
+        status: options.status,
+        startDate: options.startDate,
+        endDate: options.endDate,
+        sort: { date: -1 },
+        limit: options.limit || 24
+      });
 
-      const usage = {
-        charactersUsed: Number(user.publicMetadata.charactersUsed || 0),
-        voiceClones: Number(user.publicMetadata.voiceClones || 0),
-        requestsThisMinute: Number(user.publicMetadata.requestsThisMinute || 0),
-        limits
-      };
-
-      return usage;
+      return payments;
     } catch (error) {
-      console.error('Error getting subscription usage:', error);
+      console.error('Error getting payment history:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update customer ID
+   */
+  async updateCustomerId(userId, stripeCustomerId) {
+    try {
+      await User.findByIdAndUpdate(userId, {
+        $set: { stripeCustomerId }
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating customer ID:', error);
       throw error;
     }
   }
 }
 
-export const subscriptionService = new SubscriptionService();
+module.exports = new SubscriptionService();

@@ -14,7 +14,7 @@ export default defineConfig(({ mode }) => {
       open: true,
       proxy: {
         '/api': {
-          target: 'http://localhost:3000',
+          target: 'http://localhost:5001',
           changeOrigin: true,
           secure: false,
           rewrite: (path) => path  // Keep the full path intact

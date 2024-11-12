@@ -1,141 +1,148 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo } from 'react';
-import { useAuth } from '@clerk/clerk-react';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 
 interface UsageStats {
-  current: {
-    charactersUsed: number;
-    voiceClones: number;
-    requestsThisMinute: number;
-  };
+  totalRequests: number;
+  audioGenerated: number;
+  storageUsed: number;
+  lastRequest: Date;
+  quotaRemaining: number;
+  usageHistory: {
+    date: Date;
+    requests: number;
+    storage: number;
+  }[];
   limits: {
-    requestsPerMinute: number;
-    charactersPerMonth: number;
-    voiceClones: number;
+    maxRequests: number;
+    maxStorage: number;
+    maxAudioLength: number;
+    maxFileSize: number;
   };
-  remaining: {
-    charactersPerMonth: number;
-    voiceClones: number;
-    requestsPerMinute: number;
-  };
-  trends: {
-    daily: Array<{
-      date: string;
-      charactersUsed: number;
-      requestCount: number;
-      voiceClones: number;
-    }>;
-    averages: {
-      charactersPerDay: number;
-      requestsPerDay: number;
-    };
-  };
-  lastUpdated: string;
 }
 
-export const useUsageStats = () => {
-  const { getToken } = useAuth();
-  const queryClient = useQueryClient();
-
-  const fetchUsageStats = async (): Promise<UsageStats> => {
-    const token = await getToken();
-    if (!token) {
-      throw new Error('No authentication token available');
-    }
-
-    const response = await fetch('/api/usage/stats', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Unauthorized. Please sign in.');
-      }
-      if (response.status === 403) {
-        throw new Error('No active subscription found.');
-      }
-      throw new Error('Failed to fetch usage stats');
-    }
-
-    return response.json();
+interface ExtendedUsageStats extends UsageStats {
+  percentageUsed: {
+    requests: number;
+    storage: number;
   };
+  isNearLimit: {
+    requests: boolean;
+    storage: boolean;
+  };
+}
 
-  const { data: rawStats, isLoading, error } = useQuery({
+const fetchUsageStats = async (): Promise<UsageStats> => {
+  try {
+    const { data } = await axios.get('/api/usage/stats');
+    return {
+      ...data,
+      lastRequest: new Date(data.lastRequest),
+      usageHistory: data.usageHistory.map((item: any) => ({
+        ...item,
+        date: new Date(item.date)
+      }))
+    };
+  } catch (error) {
+    console.error('Error fetching usage stats:', error);
+    throw error;
+  }
+};
+
+export const useUsageStats = () => {
+  return useQuery<UsageStats, Error, ExtendedUsageStats>({
     queryKey: ['usageStats'],
     queryFn: fetchUsageStats,
-    refetchInterval: 60000, // Refresh every minute
-    retry: (failureCount, error: any) => {
-      // Don't retry on 401/403 errors
-      if (error?.message?.includes('Unauthorized') || error?.message?.includes('No active subscription')) {
-        return false;
+    refetchInterval: 60000, // Refetch every minute
+    retry: 3,
+    staleTime: 30000, // Consider data stale after 30 seconds
+    select: (data) => ({
+      ...data,
+      percentageUsed: {
+        requests: (data.totalRequests / data.limits.maxRequests) * 100,
+        storage: (data.storageUsed / data.limits.maxStorage) * 100
+      },
+      isNearLimit: {
+        requests: data.totalRequests >= data.limits.maxRequests * 0.9,
+        storage: data.storageUsed >= data.limits.maxStorage * 0.9
       }
-      return failureCount < 3;
-    },
-    enabled: !!getToken // Only run query when auth token is available
+    })
   });
+};
 
-  const formattedData = useMemo(() => {
-    if (!rawStats) return null;
+// Helper hook for real-time usage tracking
+export const useTrackUsage = () => {
+  const { refetch } = useUsageStats();
 
-    // Calculate percentages
-    const percentages = {
-      characters: (rawStats.current.charactersUsed / rawStats.limits.charactersPerMonth) * 100,
-      voiceClones: (rawStats.current.voiceClones / rawStats.limits.voiceClones) * 100,
-      requests: (rawStats.current.requestsThisMinute / rawStats.limits.requestsPerMinute) * 100
-    };
+  const trackUsage = async (type: 'request' | 'storage', amount: number) => {
+    try {
+      await axios.post('/api/usage/track', {
+        type,
+        amount,
+        timestamp: new Date().toISOString()
+      });
+      // Refetch usage stats after tracking
+      refetch();
+    } catch (error) {
+      console.error('Error tracking usage:', error);
+      throw error;
+    }
+  };
 
-    // Format trend data for charts
-    const chartData = rawStats.trends.daily.map(day => ({
-      date: new Date(day.date).toLocaleDateString(),
-      Characters: day.charactersUsed,
-      Requests: day.requestCount,
-      'Voice Clones': day.voiceClones
-    }));
+  return { trackUsage };
+};
 
-    // Calculate usage by category
-    const categories = [
-      {
-        name: 'Characters',
-        used: rawStats.current.charactersUsed,
-        total: rawStats.limits.charactersPerMonth,
-        percentage: percentages.characters
-      },
-      {
-        name: 'Voice Clones',
-        used: rawStats.current.voiceClones,
-        total: rawStats.limits.voiceClones,
-        percentage: percentages.voiceClones
-      },
-      {
-        name: 'API Requests',
-        used: rawStats.current.requestsThisMinute,
-        total: rawStats.limits.requestsPerMinute,
-        percentage: percentages.requests
-      }
-    ];
+// Helper hook for usage alerts
+export const useUsageAlerts = () => {
+  const { data: usageStats } = useUsageStats();
 
-    return {
-      raw: rawStats,
-      percentages,
-      chartData,
-      categories,
-      lastUpdated: new Date(rawStats.lastUpdated).toLocaleString()
-    };
-  }, [rawStats]);
+  if (!usageStats) return { hasWarnings: false, warnings: [] };
 
-  // Function to manually refresh stats
-  const refreshStats = () => {
-    queryClient.invalidateQueries({ queryKey: ['usageStats'] });
+  const warnings = [];
+
+  if (usageStats.percentageUsed.requests >= 90) {
+    warnings.push({
+      type: 'requests',
+      message: 'You are approaching your request limit',
+      percentage: usageStats.percentageUsed.requests
+    });
+  }
+
+  if (usageStats.percentageUsed.storage >= 90) {
+    warnings.push({
+      type: 'storage',
+      message: 'You are approaching your storage limit',
+      percentage: usageStats.percentageUsed.storage
+    });
+  }
+
+  return {
+    hasWarnings: warnings.length > 0,
+    warnings
+  };
+};
+
+// Helper hook for usage history
+export const useUsageHistory = () => {
+  const { data: usageStats } = useUsageStats();
+
+  if (!usageStats) return { history: [], trends: null };
+
+  const history = usageStats.usageHistory;
+  
+  // Calculate trends
+  const trends = {
+    requests: {
+      daily: history.reduce((acc, curr) => acc + curr.requests, 0) / history.length,
+      trend: history[history.length - 1].requests > history[0].requests ? 'up' : 'down'
+    },
+    storage: {
+      daily: history.reduce((acc, curr) => acc + curr.storage, 0) / history.length,
+      trend: history[history.length - 1].storage > history[0].storage ? 'up' : 'down'
+    }
   };
 
   return {
-    stats: formattedData,
-    rawStats,
-    isLoading,
-    error,
-    refreshStats
+    history,
+    trends
   };
 };
