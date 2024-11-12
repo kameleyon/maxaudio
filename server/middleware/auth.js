@@ -1,7 +1,7 @@
 const requireAuth = (req, res, next) => {
-  // Mock authentication for development
+  // Mock authentication for development with valid MongoDB ObjectId format
   req.user = {
-    id: '123',
+    id: '507f1f77bcf86cd799439011', // Valid MongoDB ObjectId format
     email: 'test@example.com',
     role: 'user'
   };
@@ -9,9 +9,9 @@ const requireAuth = (req, res, next) => {
 };
 
 const requireAdmin = (req, res, next) => {
-  // Mock admin authentication for development
+  // Mock admin authentication for development with valid MongoDB ObjectId format
   req.user = {
-    id: '123',
+    id: '507f1f77bcf86cd799439012', // Valid MongoDB ObjectId format
     email: 'admin@example.com',
     role: 'admin'
   };

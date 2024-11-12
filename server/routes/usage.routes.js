@@ -1,11 +1,12 @@
 const express = require('express');
 const router = express.Router();
 const { requireAuth } = require('../middleware/auth');
+const { usageService } = require('../services/usage.service');
 
 // Get usage stats
 router.get('/stats', requireAuth, async (req, res) => {
   try {
-    // Mock response with realistic usage data
+    // For development, return mock data since Clerk is not configured
     res.json({
       totalRequests: 100,
       audioGenerated: 50,
@@ -43,7 +44,10 @@ router.get('/stats', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting usage stats:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
@@ -74,7 +78,10 @@ router.get('/history', requireAuth, async (req, res) => {
     ]);
   } catch (error) {
     console.error('Error getting usage history:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
@@ -90,7 +97,10 @@ router.get('/quota', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error getting quota status:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
@@ -107,7 +117,10 @@ router.post('/track', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error('Error tracking usage event:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
   }
 });
 
