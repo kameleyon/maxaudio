@@ -7,8 +7,7 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
-  ResponsiveContainer,
-  Legend
+  ResponsiveContainer
 } from 'recharts';
 import { MouseEvent } from 'react';
 
@@ -111,18 +110,23 @@ export function TokenUsagePanel() {
                   stroke="#ffffff60"
                   tick={{ fill: '#ffffff60' }}
                 />
-                <YAxis stroke="#ffffff60" tick={{ fill: '#ffffff60' }} />
+                <YAxis 
+                  stroke="#ffffff60" 
+                  tick={{ fill: '#ffffff60' }}
+                  tickFormatter={(value) => value.toLocaleString()}
+                />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#1a1a2e',
                     border: '1px solid rgba(255,255,255,0.1)',
                     borderRadius: '8px'
                   }}
+                  formatter={(value: number) => [value.toLocaleString(), '']}
                 />
-                <Legend />
                 <Area
                   type="monotone"
                   dataKey="Characters"
+                  name=""
                   stroke="#63248d"
                   fillOpacity={1}
                   fill="url(#colorCharacters)"

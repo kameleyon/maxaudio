@@ -25,19 +25,19 @@ router.get('/stats', requireAuth, async (req, res) => {
       },
       history: [
         {
-          date: new Date(Date.now() - 86400000).toLocaleDateString(), // yesterday
-          requests: 4500,
-          storage: 1024 * 1024 * 50
+          date: '11/11/2024',
+          requests: 2000,
+          storage: 1024 * 1024 * 30
         },
         {
-          date: new Date(Date.now() - 86400000 * 2).toLocaleDateString(), // 2 days ago
+          date: '11/10/2024',
           requests: 3500,
           storage: 1024 * 1024 * 40
         },
         {
-          date: new Date(Date.now() - 86400000 * 3).toLocaleDateString(), // 3 days ago
-          requests: 2000,
-          storage: 1024 * 1024 * 30
+          date: '11/09/2024',
+          requests: 4500,
+          storage: 1024 * 1024 * 50
         }
       ],
       lastUpdated: new Date().toLocaleString()
@@ -58,7 +58,7 @@ router.get('/history', requireAuth, async (req, res) => {
     // Mock response with detailed history
     res.json([
       {
-        date: new Date(Date.now() - 86400000).toLocaleDateString(),
+        date: '11/11/2024',
         requests: 4500,
         storage: 1024 * 1024 * 50,
         audioGenerated: 20,
@@ -67,7 +67,7 @@ router.get('/history', requireAuth, async (req, res) => {
         errorRate: 0.02
       },
       {
-        date: new Date(Date.now() - 86400000 * 2).toLocaleDateString(),
+        date: '11/10/2024',
         requests: 3500,
         storage: 1024 * 1024 * 40,
         audioGenerated: 15,
@@ -93,7 +93,7 @@ router.get('/quota', requireAuth, async (req, res) => {
       requestsLimit: 60,
       storageUsed: 1024 * 1024 * 100,
       storageLimit: 1024 * 1024 * 1024,
-      resetDate: new Date(Date.now() + 86400000 * 15).toLocaleDateString()
+      resetDate: '11/25/2024'
     });
   } catch (error) {
     console.error('Error getting quota status:', error);
