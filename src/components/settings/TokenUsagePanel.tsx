@@ -46,10 +46,17 @@ export function TokenUsagePanel() {
     );
   }
 
-  const chartData: ChartDataItem[] = stats.history.map(item => ({
-    date: item.date,
-    Characters: item.requests
-  }));
+  // Sort and reverse the chart data to show dates in descending order
+  const chartData: ChartDataItem[] = [...stats.history]
+    .sort((a, b) => {
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateB.getTime() - dateA.getTime();
+    })
+    .map(item => ({
+      date: item.date,
+      Characters: item.requests
+    }));
 
   return (
     <div className="space-y-8">
@@ -109,6 +116,7 @@ export function TokenUsagePanel() {
                   dataKey="date"
                   stroke="#ffffff60"
                   tick={{ fill: '#ffffff60' }}
+                  reversed={true}
                 />
                 <YAxis 
                   stroke="#ffffff60" 
