@@ -2,147 +2,72 @@ import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
 
 interface UsageStats {
-  totalRequests: number;
-  audioGenerated: number;
-  storageUsed: number;
-  lastRequest: Date;
-  quotaRemaining: number;
-  usageHistory: {
-    date: Date;
-    requests: number;
-    storage: number;
-  }[];
+  current: {
+    charactersUsed: number;
+    requestsThisMinute: number;
+    voiceClones: number;
+  };
   limits: {
-    maxRequests: number;
-    maxStorage: number;
-    maxAudioLength: number;
-    maxFileSize: number;
+    charactersPerMonth: number;
+    requestsPerMinute: number;
+    voiceClones: number;
   };
-}
-
-interface ExtendedUsageStats extends UsageStats {
-  percentageUsed: {
+  remaining: {
+    charactersPerMonth: number;
+    requestsPerMinute: number;
+    voiceClones: number;
+  };
+  history: Array<{
+    date: string;
     requests: number;
     storage: number;
-  };
-  isNearLimit: {
-    requests: boolean;
-    storage: boolean;
-  };
+  }>;
+  lastUpdated: string;
 }
 
 const fetchUsageStats = async (): Promise<UsageStats> => {
   try {
     const { data } = await axios.get('/api/usage/stats');
-    return {
-      ...data,
-      lastRequest: new Date(data.lastRequest),
-      usageHistory: data.usageHistory.map((item: any) => ({
-        ...item,
-        date: new Date(item.date)
-      }))
-    };
+    return data;
   } catch (error) {
     console.error('Error fetching usage stats:', error);
     throw error;
   }
 };
 
+const getUsagePercentage = (used: number, total: number): number => {
+  if (total === 0) return 0;
+  const percentage = (used / total) * 100;
+  return Math.min(Math.max(percentage, 0), 100);
+};
+
 export const useUsageStats = () => {
-  return useQuery<UsageStats, Error, ExtendedUsageStats>({
+  const { data, isLoading: loading, error, refetch } = useQuery<UsageStats, Error>({
     queryKey: ['usageStats'],
     queryFn: fetchUsageStats,
     refetchInterval: 60000, // Refetch every minute
     retry: 3,
-    staleTime: 30000, // Consider data stale after 30 seconds
-    select: (data) => ({
-      ...data,
-      percentageUsed: {
-        requests: (data.totalRequests / data.limits.maxRequests) * 100,
-        storage: (data.storageUsed / data.limits.maxStorage) * 100
-      },
-      isNearLimit: {
-        requests: data.totalRequests >= data.limits.maxRequests * 0.9,
-        storage: data.storageUsed >= data.limits.maxStorage * 0.9
-      }
-    })
+    staleTime: 30000 // Consider data stale after 30 seconds
   });
-};
 
-// Helper hook for real-time usage tracking
-export const useTrackUsage = () => {
-  const { refetch } = useUsageStats();
-
-  const trackUsage = async (type: 'request' | 'storage', amount: number) => {
-    try {
-      await axios.post('/api/usage/track', {
-        type,
-        amount,
-        timestamp: new Date().toISOString()
-      });
-      // Refetch usage stats after tracking
-      refetch();
-    } catch (error) {
-      console.error('Error tracking usage:', error);
-      throw error;
-    }
-  };
-
-  return { trackUsage };
-};
-
-// Helper hook for usage alerts
-export const useUsageAlerts = () => {
-  const { data: usageStats } = useUsageStats();
-
-  if (!usageStats) return { hasWarnings: false, warnings: [] };
-
-  const warnings = [];
-
-  if (usageStats.percentageUsed.requests >= 90) {
-    warnings.push({
-      type: 'requests',
-      message: 'You are approaching your request limit',
-      percentage: usageStats.percentageUsed.requests
-    });
-  }
-
-  if (usageStats.percentageUsed.storage >= 90) {
-    warnings.push({
-      type: 'storage',
-      message: 'You are approaching your storage limit',
-      percentage: usageStats.percentageUsed.storage
-    });
-  }
+  const warnings = data ? [
+    ...(getUsagePercentage(data.current.charactersUsed, data.limits.charactersPerMonth) >= 80 
+      ? ['You are approaching your monthly character limit'] 
+      : []),
+    ...(getUsagePercentage(data.current.requestsThisMinute, data.limits.requestsPerMinute) >= 80 
+      ? ['High API request rate detected'] 
+      : []),
+    ...(getUsagePercentage(data.current.voiceClones, data.limits.voiceClones) >= 80 
+      ? ['You are approaching your voice clone limit'] 
+      : [])
+  ] : [];
 
   return {
-    hasWarnings: warnings.length > 0,
-    warnings
-  };
-};
-
-// Helper hook for usage history
-export const useUsageHistory = () => {
-  const { data: usageStats } = useUsageStats();
-
-  if (!usageStats) return { history: [], trends: null };
-
-  const history = usageStats.usageHistory;
-  
-  // Calculate trends
-  const trends = {
-    requests: {
-      daily: history.reduce((acc, curr) => acc + curr.requests, 0) / history.length,
-      trend: history[history.length - 1].requests > history[0].requests ? 'up' : 'down'
-    },
-    storage: {
-      daily: history.reduce((acc, curr) => acc + curr.storage, 0) / history.length,
-      trend: history[history.length - 1].storage > history[0].storage ? 'up' : 'down'
-    }
-  };
-
-  return {
-    history,
-    trends
+    stats: data,
+    loading,
+    error,
+    getUsagePercentage,
+    warnings,
+    refreshStats: refetch
   };
 };

@@ -10,11 +10,22 @@ import {
   ResponsiveContainer,
   Legend
 } from 'recharts';
+import { MouseEvent } from 'react';
+
+interface ChartDataItem {
+  date: string;
+  Characters: number;
+}
 
 export function TokenUsagePanel() {
-  const { stats, isLoading, error, refreshStats } = useUsageStats();
+  const { stats, loading, error, refreshStats } = useUsageStats();
 
-  if (isLoading) {
+  const handleRefresh = (e: MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    refreshStats();
+  };
+
+  if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <RefreshCw className="w-8 h-8 animate-spin text-primary" />
@@ -27,7 +38,7 @@ export function TokenUsagePanel() {
       <div className="p-6 bg-white/5 rounded-lg border border-white/10">
         <p className="text-red-400">Failed to load usage statistics</p>
         <button
-          onClick={refreshStats}
+          onClick={handleRefresh}
           className="mt-4 px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors"
         >
           Retry
@@ -36,6 +47,11 @@ export function TokenUsagePanel() {
     );
   }
 
+  const chartData: ChartDataItem[] = stats.history.map(item => ({
+    date: item.date,
+    Characters: item.requests
+  }));
+
   return (
     <div className="space-y-8">
       {/* Overall Usage */}
@@ -43,7 +59,7 @@ export function TokenUsagePanel() {
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-xl font-semibold">Token Usage Overview</h2>
           <button
-            onClick={refreshStats}
+            onClick={handleRefresh}
             className="p-2 hover:bg-white/5 rounded-lg transition-colors"
             title="Refresh stats"
           >
@@ -56,11 +72,11 @@ export function TokenUsagePanel() {
             <div>
               <p className="text-sm text-white/60 mb-1">Monthly Characters Used</p>
               <p className="text-3xl font-bold">
-                {stats.raw.current.charactersUsed.toLocaleString()}
+                {stats.current.charactersUsed.toLocaleString()}
               </p>
             </div>
             <p className="text-white/60">
-              of {stats.raw.limits.charactersPerMonth.toLocaleString()} characters
+              of {stats.limits.charactersPerMonth.toLocaleString()} characters
             </p>
           </div>
 
@@ -68,7 +84,9 @@ export function TokenUsagePanel() {
           <div className="h-2 bg-white/10 rounded-full overflow-hidden">
             <div
               className="h-full bg-primary"
-              style={{ width: `${stats.percentages.characters}%` }}
+              style={{ 
+                width: `${(stats.current.charactersUsed / stats.limits.charactersPerMonth) * 100}%` 
+              }}
             />
           </div>
         </div>
@@ -80,7 +98,7 @@ export function TokenUsagePanel() {
         <div className="p-6 bg-white/5 rounded-lg border border-white/10">
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={stats.chartData}>
+              <AreaChart data={chartData}>
                 <defs>
                   <linearGradient id="colorCharacters" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#63248d" stopOpacity={0.8}/>
@@ -115,11 +133,30 @@ export function TokenUsagePanel() {
         </div>
       </div>
 
-      {/* Usage by Category */}
+      {/* Usage Categories */}
       <div>
         <h2 className="text-xl font-semibold mb-6">Usage by Category</h2>
         <div className="space-y-4">
-          {stats.categories.map((category) => (
+          {[
+            {
+              name: 'Characters',
+              used: stats.current.charactersUsed,
+              total: stats.limits.charactersPerMonth,
+              percentage: (stats.current.charactersUsed / stats.limits.charactersPerMonth) * 100
+            },
+            {
+              name: 'API Requests',
+              used: stats.current.requestsThisMinute,
+              total: stats.limits.requestsPerMinute,
+              percentage: (stats.current.requestsThisMinute / stats.limits.requestsPerMinute) * 100
+            },
+            {
+              name: 'Voice Clones',
+              used: stats.current.voiceClones,
+              total: stats.limits.voiceClones,
+              percentage: (stats.current.voiceClones / stats.limits.voiceClones) * 100
+            }
+          ].map((category) => (
             <div
               key={category.name}
               className="p-4 bg-white/5 rounded-lg border border-white/10"

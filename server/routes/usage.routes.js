@@ -6,41 +6,41 @@ const { usageService } = require('../services/usage.service');
 // Get usage stats
 router.get('/stats', requireAuth, async (req, res) => {
   try {
-    // For development, return mock data since Clerk is not configured
+    // Mock data for development
     res.json({
-      totalRequests: 100,
-      audioGenerated: 50,
-      storageUsed: 1024 * 1024 * 100, // 100MB
-      lastRequest: new Date(),
-      quotaRemaining: 1000,
-      usageHistory: [
+      current: {
+        charactersUsed: 5000,
+        requestsThisMinute: 30,
+        voiceClones: 2
+      },
+      limits: {
+        charactersPerMonth: 100000,
+        requestsPerMinute: 60,
+        voiceClones: 5
+      },
+      remaining: {
+        charactersPerMonth: 95000,
+        requestsPerMinute: 30,
+        voiceClones: 3
+      },
+      history: [
         {
-          date: new Date(Date.now() - 86400000), // yesterday
-          requests: 45,
+          date: new Date(Date.now() - 86400000).toLocaleDateString(), // yesterday
+          requests: 4500,
           storage: 1024 * 1024 * 50
         },
         {
-          date: new Date(Date.now() - 86400000 * 2), // 2 days ago
-          requests: 35,
+          date: new Date(Date.now() - 86400000 * 2).toLocaleDateString(), // 2 days ago
+          requests: 3500,
           storage: 1024 * 1024 * 40
         },
         {
-          date: new Date(Date.now() - 86400000 * 3), // 3 days ago
-          requests: 20,
+          date: new Date(Date.now() - 86400000 * 3).toLocaleDateString(), // 3 days ago
+          requests: 2000,
           storage: 1024 * 1024 * 30
         }
       ],
-      limits: {
-        maxRequests: 1000,
-        maxStorage: 1024 * 1024 * 1024, // 1GB
-        maxAudioLength: 300, // 5 minutes
-        maxFileSize: 1024 * 1024 * 50 // 50MB
-      },
-      subscription: {
-        plan: 'pro',
-        status: 'active',
-        nextBilling: new Date(Date.now() + 86400000 * 30)
-      }
+      lastUpdated: new Date().toLocaleString()
     });
   } catch (error) {
     console.error('Error getting usage stats:', error);
@@ -58,8 +58,8 @@ router.get('/history', requireAuth, async (req, res) => {
     // Mock response with detailed history
     res.json([
       {
-        date: new Date(Date.now() - 86400000),
-        requests: 45,
+        date: new Date(Date.now() - 86400000).toLocaleDateString(),
+        requests: 4500,
         storage: 1024 * 1024 * 50,
         audioGenerated: 20,
         averageAudioLength: 120,
@@ -67,8 +67,8 @@ router.get('/history', requireAuth, async (req, res) => {
         errorRate: 0.02
       },
       {
-        date: new Date(Date.now() - 86400000 * 2),
-        requests: 35,
+        date: new Date(Date.now() - 86400000 * 2).toLocaleDateString(),
+        requests: 3500,
         storage: 1024 * 1024 * 40,
         audioGenerated: 15,
         averageAudioLength: 90,
@@ -89,11 +89,11 @@ router.get('/history', requireAuth, async (req, res) => {
 router.get('/quota', requireAuth, async (req, res) => {
   try {
     res.json({
-      requestsUsed: 100,
-      requestsLimit: 1000,
+      requestsUsed: 30,
+      requestsLimit: 60,
       storageUsed: 1024 * 1024 * 100,
       storageLimit: 1024 * 1024 * 1024,
-      resetDate: new Date(Date.now() + 86400000 * 15)
+      resetDate: new Date(Date.now() + 86400000 * 15).toLocaleDateString()
     });
   } catch (error) {
     console.error('Error getting quota status:', error);
@@ -111,7 +111,7 @@ router.post('/track', requireAuth, async (req, res) => {
     // Mock response
     res.json({
       tracked: true,
-      timestamp: new Date(),
+      timestamp: new Date().toLocaleString(),
       eventType,
       metadata
     });
