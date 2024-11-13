@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { useUser } from '../contexts/UserContext';
+import { useUser } from '../../contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
 
 interface SubscriptionTier {
   id: string;
@@ -37,7 +38,7 @@ const subscriptionTiers: SubscriptionTier[] = [
   {
     id: 'premium_monthly',
     name: 'Premium',
-    price: 99,
+    price: 79.99,
     features: [
       'Unlimited characters',
       'All voice features',
@@ -50,35 +51,46 @@ const subscriptionTiers: SubscriptionTier[] = [
 
 export function WelcomeModal({ onClose }: { onClose: () => void }) {
   const { user } = useUser();
+  const navigate = useNavigate();
   const [selectedTier, setSelectedTier] = useState<string>('free');
+
+  const handleContinue = () => {
+    if (selectedTier === 'free') {
+      onClose();
+      navigate('/studio');
+    } else {
+      navigate('/settings/billing', { 
+        state: { selectedPlan: selectedTier } 
+      });
+    }
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-gradient-to-br from-gray-900 to-gray-800 p-8 rounded-xl max-w-3xl w-full mx-4 border border-white/10">
+      <div className="bg-gradient-to-br from-[#0f172a] to-[#1e293b] p-6 rounded-lg max-w-2xl w-full mx-4 border border-white/10 shadow-xl">
         {/* Welcome Header */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl font-bold mb-4">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold mb-2 text-blue-100">
             Welcome to AudioMax, {user?.email?.split('@')[0]}!
           </h2>
-          <p className="text-white/60">
+          <p className="text-white/60 text-sm">
             Choose your subscription plan to get started with AI-powered voice generation.
-            You can change your plan anytime from your account settings.
           </p>
         </div>
 
         {/* Subscription Options */}
-        <div className="space-y-6 mb-8">
+        <div className="space-y-4 mb-6">
           {subscriptionTiers.map((tier) => (
             <div
               key={tier.id}
-              className={`p-6 rounded-lg border transition-all ${
+              className={`p-4 rounded-lg border transition-all ${
                 selectedTier === tier.id
                   ? 'border-primary bg-primary/5'
                   : 'border-white/10 bg-white/5 hover:border-white/20'
               }`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-4">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-3">
                   <input
                     type="radio"
                     name="subscription"
@@ -88,10 +100,10 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
                     className="w-4 h-4 text-primary"
                   />
                   <div>
-                    <label htmlFor={tier.id} className="font-medium text-lg">
+                    <label htmlFor={tier.id} className="font-medium text-white">
                       {tier.name}
                     </label>
-                    <p className="text-white/60">
+                    <p className="text-white/60 text-sm">
                       {tier.price === 0 ? 'Free' : `$${tier.price}/month`}
                     </p>
                   </div>
@@ -99,18 +111,18 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
                 {!tier.isDefault && (
                   <button
                     onClick={() => setSelectedTier(tier.id)}
-                    className="px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors"
+                    className="px-3 py-1.5 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors text-sm"
                   >
                     Upgrade
                   </button>
                 )}
               </div>
 
-              <div className="ml-8 space-y-2">
+              <div className="ml-7 space-y-1">
                 {tier.features.map((feature, index) => (
-                  <div key={index} className="flex items-center gap-2">
+                  <div key={index} className="flex items-center gap-2 text-sm">
                     <svg
-                      className="w-4 h-4 text-primary"
+                      className="w-3.5 h-3.5 text-primary flex-shrink-0"
                       fill="none"
                       viewBox="0 0 24 24"
                       stroke="currentColor"
@@ -130,13 +142,13 @@ export function WelcomeModal({ onClose }: { onClose: () => void }) {
           ))}
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex justify-end gap-4">
+        {/* Action Button */}
+        <div className="flex justify-end">
           <button
-            onClick={onClose}
-            className="px-6 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors"
+            onClick={handleContinue}
+            className="px-4 py-2 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors text-sm"
           >
-            {selectedTier === 'free' ? 'Continue with Basic' : 'Upgrade Now'}
+            {selectedTier === 'free' ? 'Continue with Basic' : 'Continue to Payment'}
           </button>
         </div>
       </div>
