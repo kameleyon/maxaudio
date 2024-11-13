@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const subscriptionSchema = new mongoose.Schema({
   planId: {
@@ -51,12 +52,27 @@ const subscriptionSchema = new mongoose.Schema({
 });
 
 const userSchema = new mongoose.Schema({
+  username: {
+    type: String,
+    required: true,
+    unique: true,
+    trim: true,
+    minlength: 3,
+    maxlength: 30,
+    match: [/^[a-zA-Z0-9_]+$/, 'Username can only contain letters, numbers, and underscores']
+  },
   email: {
     type: String,
     required: true,
     unique: true,
     lowercase: true,
     trim: true
+  },
+  password: {
+    type: String,
+    required: true,
+    minlength: 8,
+    select: false // Don't include password in queries by default
   },
   name: {
     type: String,
@@ -124,7 +140,9 @@ const userSchema = new mongoose.Schema({
     type: Map,
     of: mongoose.Schema.Types.Mixed,
     default: () => new Map()
-  }
+  },
+  resetPasswordToken: String,
+  resetPasswordExpires: Date
 }, {
   timestamps: true,
   toJSON: {
@@ -132,18 +150,38 @@ const userSchema = new mongoose.Schema({
     transform: function(doc, ret) {
       delete ret._id;
       delete ret.__v;
+      delete ret.password;
       return ret;
     }
   }
 });
 
-// Indexes (removed duplicate email index)
+// Indexes
+userSchema.index({ username: 1 }, { unique: true });
+userSchema.index({ email: 1 }, { unique: true });
 userSchema.index({ stripeCustomerId: 1 }, { sparse: true });
 userSchema.index({ 'subscription.status': 1 });
 userSchema.index({ 'subscription.planId': 1 });
 userSchema.index({ createdAt: 1 });
 
+// Password hashing middleware
+userSchema.pre('save', async function(next) {
+  if (this.isModified('email')) {
+    this.email = this.email.toLowerCase();
+  }
+  
+  if (this.isModified('password')) {
+    const salt = await bcrypt.genSalt(10);
+    this.password = await bcrypt.hash(this.password, salt);
+  }
+  next();
+});
+
 // Methods
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return bcrypt.compare(candidatePassword, this.password);
+};
+
 userSchema.methods.hasFeature = function(feature) {
   return this.subscription?.features?.[feature] || false;
 };
@@ -178,17 +216,13 @@ userSchema.statics.findByEmail = function(email) {
   return this.findOne({ email: email.toLowerCase() });
 };
 
+userSchema.statics.findByUsername = function(username) {
+  return this.findOne({ username });
+};
+
 userSchema.statics.findByStripeCustomerId = function(stripeCustomerId) {
   return this.findOne({ stripeCustomerId });
 };
-
-// Middleware
-userSchema.pre('save', function(next) {
-  if (this.isModified('email')) {
-    this.email = this.email.toLowerCase();
-  }
-  next();
-});
 
 const User = mongoose.model('User', userSchema);
 

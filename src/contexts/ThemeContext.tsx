@@ -5,11 +5,13 @@ type Theme = 'light' | 'dark';
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
+  toggleTheme: () => void;
 }
 
 const ThemeContext = createContext<ThemeContextType>({
   theme: 'dark',
   setTheme: () => {},
+  toggleTheme: () => {}
 });
 
 export const useTheme = () => useContext(ThemeContext);
@@ -23,7 +25,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     // Check local storage or system preference
     const savedTheme = localStorage.getItem('theme');
     if (savedTheme === 'light' || savedTheme === 'dark') {
-      return savedTheme;
+      return savedTheme as Theme;
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   });
@@ -35,8 +37,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     localStorage.setItem('theme', theme);
   }, [theme]);
 
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'dark' ? 'light' : 'dark');
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );

@@ -1,16 +1,20 @@
-import { SignUp as ClerkSignUp } from '@clerk/clerk-react'
-import { useUser } from '@clerk/clerk-react'
-import { Navigate } from 'react-router-dom'
+import { useEffect } from 'react';
+import { Navigate } from 'react-router-dom';
+import { SignUpForm } from '../components/auth/SignUpForm';
+import { authService } from '../services/auth.service';
 
 export function SignUp() {
-  const { isSignedIn, isLoaded } = useUser()
+  const isAuthenticated = authService.isAuthenticated();
 
-  if (!isLoaded) {
-    return null
-  }
+  useEffect(() => {
+    // Clear any old auth data when visiting signup page
+    if (!isAuthenticated) {
+      authService.logout();
+    }
+  }, [isAuthenticated]);
 
-  if (isSignedIn) {
-    return <Navigate to="/studio" />
+  if (isAuthenticated) {
+    return <Navigate to="/welcome" />;
   }
 
   return (
@@ -32,40 +36,10 @@ export function SignUp() {
 
       {/* Auth Section */}
       <div className="w-full md:flex-1 md:max-w-md">
-        <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 md:p-8 border border-white/10">
-          <ClerkSignUp 
-            routing="hash"
-            path="/sign-up"
-            signInUrl="/"
-            afterSignUpUrl="/studio"
-            redirectUrl="/studio"
-            appearance={{
-              elements: {
-                formButtonPrimary: 'bg-primary hover:bg-primary/80 w-full',
-                card: 'bg-transparent w-full',
-                headerTitle: 'text-white text-xl md:text-2xl',
-                headerSubtitle: 'text-white/80',
-                socialButtonsBlockButton: 'bg-white/10 border-white/20 text-white hover:bg-white/20 w-full',
-                dividerLine: 'bg-white/20',
-                dividerText: 'text-white/60',
-                formFieldLabel: 'text-white/80',
-                formFieldInput: 'bg-white/10 border-white/20 text-white w-full px-3 py-2 rounded-md',
-                formFieldInputShowPasswordButton: 'text-white/60 hover:text-white',
-                footerActionLink: 'text-[#9de9c7] hover:text-[#9de9c7]/80',
-                footerAction: 'flex items-center justify-center mt-4',
-                form: 'w-full space-y-4',
-                formFieldRow: 'w-full',
-                identityPreviewEditButton: 'text-[#9de9c7] hover:text-[#9de9c7]/80',
-                formResendCodeLink: 'text-[#9de9c7] hover:text-[#9de9c7]/80',
-                otpCodeFieldInput: 'bg-white/10 border-white/20 text-white w-12 h-12 text-center rounded-md'
-              },
-              layout: {
-                socialButtonsPlacement: 'bottom'
-              }
-            }}
-          />
+        <div className="bg-white/5 backdrop-blur-sm rounded-lg p-4 md:p-8 border border-white/10" style={{ boxShadow: '0 4px 12px #00000030' }}>
+          <SignUpForm />
         </div>
       </div>
     </div>
-  )
+  );
 }

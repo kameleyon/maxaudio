@@ -2,6 +2,7 @@ import { lazy, Suspense, LazyExoticComponent, ComponentType } from 'react';
 import { RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../components/auth/ProtectedRoute';
 import { AdminRoute } from '../components/auth/AdminRoute';
+import { NewUserRedirect } from '../components/auth/NewUserRedirect';
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -27,6 +28,7 @@ const Home = lazyWithPrefetch(() => import('../pages/Home'));
 const About = lazyWithPrefetch(() => import('../pages/About'));
 const Help = lazyWithPrefetch(() => import('../pages/Help'));
 const NotFound = lazyWithPrefetch(() => import('../pages/NotFound'));
+const SignUp = lazyWithPrefetch(() => import('../pages/SignUp'));
 
 // Protected pages
 const Studio = lazyWithPrefetch(() => import('../pages/Studio'));
@@ -46,12 +48,27 @@ export const routes: RouteObject[] = [
     element: <Suspense fallback={<LoadingFallback />}><Home /></Suspense>
   },
   {
+    path: '/sign-up',
+    element: <Suspense fallback={<LoadingFallback />}><SignUp /></Suspense>,
+    children: [
+      // Handle OAuth continue route
+      {
+        path: 'continue',
+        element: <NewUserRedirect />
+      }
+    ]
+  },
+  {
     path: '/about',
     element: <Suspense fallback={<LoadingFallback />}><About /></Suspense>
   },
   {
     path: '/help',
     element: <Suspense fallback={<LoadingFallback />}><Help /></Suspense>
+  },
+  {
+    path: '/welcome',
+    element: <NewUserRedirect />
   },
 
   // Protected routes

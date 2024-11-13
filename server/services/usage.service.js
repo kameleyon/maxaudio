@@ -1,5 +1,5 @@
-import clerk from '../config/clerk.js';
-import Stripe from 'stripe';
+const clerk = require('../config/clerk');
+const Stripe = require('stripe');
 
 const MAX_RETRY_ATTEMPTS = 3;
 const RETRY_DELAY_MS = 1000;
@@ -340,7 +340,9 @@ class UsageService {
   }
 }
 
-export const usageService = new UsageService();
+const usageService = new UsageService();
 
-// Export the updateUserUsage function for use in webhook middleware
-export const updateUserUsage = (userId, usageData) => usageService.updateUserUsage(userId, usageData);
+module.exports = {
+  usageService,
+  updateUserUsage: (userId, usageData) => usageService.updateUserUsage(userId, usageData)
+};
