@@ -10,8 +10,9 @@ interface AuthContextType {
   register: (data: RegisterData) => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,20 +20,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Check auth status on mount
   useEffect(() => {
+    let mounted = true;
+
     const checkAuth = async () => {
-      if (authService.isAuthenticated()) {
-        try {
-          const userData = await authService.getCurrentUser();
+      if (!authService.isAuthenticated()) {
+        if (mounted) {
+          setIsLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const userData = await authService.getCurrentUser();
+        if (mounted) {
           setUser(userData);
-        } catch (err) {
-          console.error('Failed to get user data:', err);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('Failed to get user data:', err);
+        if (mounted) {
           authService.logout();
+          setUser(null);
+          setIsLoading(false);
         }
       }
-      setIsLoading(false);
     };
 
     checkAuth();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   const login = async (email: string, password: string) => {
@@ -72,17 +90,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
+// Hook
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {

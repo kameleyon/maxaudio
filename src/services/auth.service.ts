@@ -1,5 +1,19 @@
 import axios, { AxiosError } from 'axios';
 
+// Configure axios defaults
+axios.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 interface User {
   id: string;
   username: string;
@@ -96,10 +110,20 @@ class AuthService {
   }
 
   isAuthenticated(): boolean {
+    // Check both localStorage and instance variable
+    const localToken = localStorage.getItem('token');
+    if (localToken && !this.token) {
+      this.token = localToken;
+    }
     return !!this.token;
   }
 
   getToken(): string | null {
+    // Ensure token is in sync with localStorage
+    const localToken = localStorage.getItem('token');
+    if (localToken && !this.token) {
+      this.token = localToken;
+    }
     return this.token;
   }
 
@@ -108,17 +132,13 @@ class AuthService {
     this.token = token;
   }
 
-  // Add auth header to requests
-  getAuthHeader(): { Authorization: string } | {} {
-    return this.token ? { Authorization: `Bearer ${this.token}` } : {};
-  }
-
   // Get current user
   async getCurrentUser(): Promise<User> {
     try {
-      const response = await axios.get<User>('/api/auth/me', {
-        headers: this.getAuthHeader()
-      });
+      if (!this.isAuthenticated()) {
+        throw new Error('Not authenticated');
+      }
+      const response = await axios.get<User>('/api/auth/me');
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {

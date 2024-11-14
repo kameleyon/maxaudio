@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { useClerk, useUser } from '@clerk/clerk-react'
 import { useNavigate } from 'react-router-dom'
 import {
   Wand2,
@@ -13,48 +12,43 @@ import {
   Bell,
   Info,
   LogOut,
-  ChevronRight,
   ChevronLeft,
-  Headphones,
-  Shield,
   Menu
 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
-import { debounce } from 'lodash' // Ensure lodash is installed
 
-export function Sidebar() {
+interface SidebarProps {
+  isMobileMenuOpen: boolean;
+  toggleMobileMenu: () => void;
+}
+
+export function Sidebar({ isMobileMenuOpen, toggleMobileMenu }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const { theme, toggleTheme } = useTheme()
-  const { signOut } = useClerk()
   const navigate = useNavigate()
-  const { user } = useUser()
   const location = useLocation()
   
-  const isAdmin = user?.publicMetadata?.role === 'admin'
-
   useEffect(() => {
-    const handleResize = debounce(() => {
+    const handleResize = () => {
       const mobile = window.innerWidth < 768
       setIsMobile(mobile)
       if (!mobile) {
         setIsExpanded(false)
       }
-    }, 200)
+    }
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
-  // Close sidebar on mobile when route changes
   useEffect(() => {
-    if (isMobile) {
-      setIsExpanded(false)
+    if (isMobile && isMobileMenuOpen) {
+      toggleMobileMenu()
     }
-  }, [location, isMobile])
+  }, [location, isMobile, toggleMobileMenu, isMobileMenuOpen])
 
   const handleSignOut = async () => {
-    await signOut()
     navigate('/')
   }
 
@@ -62,71 +56,44 @@ export function Sidebar() {
     { icon: Wand2, label: 'Studio', path: '/studio' },
     { icon: FolderOpen, label: 'My Files', path: '/files' },
     { icon: Mic, label: 'My Voices', path: '/voice-cloning' },
-    // { icon: Headphones, label: 'TTS Test', path: '/tts-test' },
     { icon: Settings, label: 'Settings', path: '/settings' },
     { icon: HelpCircle, label: 'Support', path: '/help' },
     { icon: Bell, label: 'Updates', path: '/notifications' },
-    { icon: Info, label: 'About Us', path: '/about' },
-    ...(isAdmin ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : [])
+    { icon: Info, label: 'About Us', path: '/about' }
   ]
-
-  const handleToggle = () => {
-    if (isMobile) {
-      setIsExpanded(prev => !prev)
-    }
-  }
-
-  const handleMouseEnter = () => {
-    if (!isMobile) {
-      setIsExpanded(true)
-    }
-  }
-
-  const handleMouseLeave = () => {
-    if (!isMobile) {
-      setIsExpanded(false)
-    }
-  }
-
-  const toggleButton = (
-    <button
-      className={`absolute ${isMobile ? 'top-0 -right-10' : '-right-3 top-6'} bg-[#63248d] rounded-full p-1.5 text-white transition-all duration-300 ${
-        isMobile && !isExpanded ? 'opacity-100' : isMobile ? 'opacity-0' : 'opacity-100'
-      }`}
-      onClick={handleToggle}
-      aria-label="Toggle Sidebar"
-      aria-expanded={isExpanded}
-    >
-      {isExpanded ? (
-        <ChevronLeft className="w-4 h-4" />
-      ) : (
-        <Menu className="w-4 h-4" />
-      )}
-    </button>
-  )
 
   return (
     <>
       {/* Mobile overlay */}
-      {isMobile && isExpanded && (
+      {isMobile && isMobileMenuOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 top-32"
-          onClick={() => setIsExpanded(false)}
-          aria-hidden="true"
+          onClick={toggleMobileMenu}
         />
       )}
 
       {/* Sidebar */}
       <div
         className={`fixed left-0 mt-4 top-12 h-[calc(100vh-4rem)] z-40 bg-[#0f0035]/90 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
-          isExpanded ? 'w-52' : isMobile ? 'w-0' : 'w-16'
+          isMobileMenuOpen || (!isMobile && isExpanded) ? 'w-52' : isMobile ? 'w-0' : 'w-16'
         }`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => !isMobile && setIsExpanded(true)}
+        onMouseLeave={() => !isMobile && setIsExpanded(false)}
       >
-        {toggleButton}
+        {!isMobile && (
+          <button
+            className="absolute -right-3 top-6 bg-[#63248d] rounded-full p-1.5 text-white transition-all duration-300"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <ChevronLeft className="w-4 h-4" />
+            ) : (
+              <Menu className="w-4 h-4" />
+            )}
+          </button>
+        )}
 
-        <div className={`py-4 flex flex-col h-full ${isMobile && !isExpanded ? 'hidden' : ''}`}>
+        <div className={`py-4 flex flex-col h-full ${!isMobileMenuOpen && isMobile ? 'hidden' : ''}`}>
           <nav className="flex-1">
             <ul className="space-y-2">
               {menuItems.map((item) => (
@@ -136,10 +103,10 @@ export function Sidebar() {
                     className={`flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors ${
                       location.pathname === item.path ? 'bg-white/10 text-white' : ''
                     }`}
-                    onClick={() => isMobile && setIsExpanded(false)}
+                    onClick={() => isMobile && toggleMobileMenu()}
                   >
                     <item.icon className="w-6 h-6" />
-                    {isExpanded && (
+                    {(isMobileMenuOpen || (!isMobile && isExpanded)) && (
                       <span className="ml-4">{item.label}</span>
                     )}
                   </Link>
@@ -158,7 +125,7 @@ export function Sidebar() {
               ) : (
                 <Moon className="w-6 h-6" />
               )}
-              {isExpanded && (
+              {(isMobileMenuOpen || (!isMobile && isExpanded)) && (
                 <span className="ml-4">Theme</span>
               )}
             </button>
@@ -168,7 +135,7 @@ export function Sidebar() {
               className="w-full flex items-center px-4 py-3 text-[#9de9c7] hover:text-white hover:bg-white/10 transition-colors"
             >
               <LogOut className="w-6 h-6" />
-              {isExpanded && (
+              {(isMobileMenuOpen || (!isMobile && isExpanded)) && (
                 <span className="ml-4">Logout</span>
               )}
             </button>
