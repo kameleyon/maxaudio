@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { Crown, Check, Calendar, CreditCard } from 'lucide-react'
 import { subscriptionTiers, specialOffers, type SubscriptionTier } from '../../config/subscription-tiers'
-import { useUser } from '@clerk/clerk-react'
+import { useAuth } from '../../contexts/AuthContext'
 import { UpgradeModal } from './UpgradeModal'
 import { UsageDisplay } from './UsageDisplay'
 
 export function SubscriptionPanel() {
-  const { user } = useUser()
+  const { user } = useAuth();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier | null>(null)
 
-  // Mock current tier - replace with actual user subscription data
-  const currentTier = subscriptionTiers.find(tier => tier.id === 'pro') || subscriptionTiers[0]
+  // Get current tier based on user's role
+  const currentTier = user?.role === 'admin' 
+    ? subscriptionTiers.find(tier => tier.id === 'premium')
+    : subscriptionTiers.find(tier => tier.id === 'free');
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -30,10 +32,14 @@ export function SubscriptionPanel() {
   }
 
   const handleUpgradeClick = (tier: SubscriptionTier) => {
-    if (tier.id !== currentTier.id) {
+    if (tier.id !== currentTier?.id) {
       setSelectedTier(tier)
       setShowUpgradeModal(true)
     }
+  }
+
+  if (!user || !currentTier) {
+    return null;
   }
 
   return (

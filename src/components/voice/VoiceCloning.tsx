@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Mic, Upload, Play, Square, RefreshCw, Trash2, Save, AlertCircle } from 'lucide-react';
 import { voiceCloningService, type VoiceTrainingData, type CustomVoiceModel } from '../../services/voice-cloning.service';
 
@@ -11,7 +11,7 @@ interface TrainingItem {
 }
 
 export function VoiceCloning() {
-  const { user, isSignedIn } = useUser();
+  const { user } = useAuth();
   const [isRecording, setIsRecording] = useState(false);
   const [trainingItems, setTrainingItems] = useState<TrainingItem[]>([]);
   const [transcription, setTranscription] = useState('');
@@ -177,7 +177,7 @@ export function VoiceCloning() {
           return {
             audioContent: Buffer.from(audioContent),
             transcription: item.transcription,
-            speakerName: user?.fullName || 'Unknown Speaker',
+            speakerName: user?.name || 'Unknown Speaker',
             languageCode: 'en-US' // TODO: Make this configurable
           };
         })
@@ -222,7 +222,7 @@ export function VoiceCloning() {
     }
   };
 
-  if (!isSignedIn) {
+  if (!user) {
     return (
       <div className="p-4 bg-white/5 rounded-lg border border-white/10">
         <p className="text-center text-white/60">Please sign in to use voice cloning.</p>

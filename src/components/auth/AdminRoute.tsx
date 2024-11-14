@@ -1,14 +1,14 @@
 import { Navigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface AdminRouteProps {
   children: React.ReactNode;
 }
 
 export function AdminRoute({ children }: AdminRouteProps) {
-  const { isSignedIn, isLoaded, user } = useUser();
+  const { user, isLoading } = useAuth();
 
-  if (!isLoaded) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-900">
         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
@@ -16,11 +16,11 @@ export function AdminRoute({ children }: AdminRouteProps) {
     );
   }
 
-  if (!isSignedIn) {
+  if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  if (user?.publicMetadata?.role !== 'admin') {
+  if (user.role !== 'admin') {
     return <Navigate to="/studio" replace />;
   }
 

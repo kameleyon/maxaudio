@@ -1,12 +1,8 @@
 import { useState } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { Moon, Sun, Globe, User } from 'lucide-react';
 import { useTheme } from '../../contexts/ThemeContext';
-
-interface UserMetadata {
-  preferredLanguage?: string;
-  emailNotifications?: boolean;
-}
+import { authService, type UserPreferences } from '../../services/auth.service';
 
 const AVAILABLE_LANGUAGES = [
   { code: 'en', name: 'English' },
@@ -20,22 +16,21 @@ const AVAILABLE_LANGUAGES = [
 type LanguageCode = typeof AVAILABLE_LANGUAGES[number]['code'];
 
 interface FormData {
-  displayName: string;
+  name: string;
   preferredLanguage: LanguageCode;
   emailNotifications: boolean;
 }
 
 export function PreferencesPanel() {
-  const { user } = useUser();
+  const { user } = useAuth();
   const { theme, setTheme } = useTheme();
   const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const metadata = user?.publicMetadata as UserMetadata;
-  
   const [formData, setFormData] = useState<FormData>({
-    displayName: user?.fullName || '',
-    preferredLanguage: (metadata?.preferredLanguage as LanguageCode) || 'en',
-    emailNotifications: metadata?.emailNotifications !== false,
+    name: user?.name || '',
+    preferredLanguage: (user?.preferences?.preferredLanguage as LanguageCode) || 'en',
+    emailNotifications: user?.preferences?.emailNotifications !== false,
   });
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -43,22 +38,17 @@ export function PreferencesPanel() {
     if (!user) return;
     
     setIsUpdating(true);
+    setError(null);
 
     try {
-      const names = formData.displayName.split(' ');
-      const firstName = names[0];
-      const lastName = names.slice(1).join(' ');
-
-      await user.update({
-        firstName,
-        lastName,
-        unsafeMetadata: {
-          preferredLanguage: formData.preferredLanguage,
-          emailNotifications: formData.emailNotifications,
-        },
+      await authService.updatePreferences({
+        preferredLanguage: formData.preferredLanguage,
+        emailNotifications: formData.emailNotifications,
+        theme: theme
       });
-    } catch (error) {
-      console.error('Failed to update profile:', error);
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
     } finally {
       setIsUpdating(false);
     }
@@ -76,16 +66,16 @@ export function PreferencesPanel() {
         <form onSubmit={handleUpdateProfile} className="space-y-6">
           <div className="space-y-4">
             <div>
-              <label htmlFor="displayName" className="block text-sm font-medium text-white/60 mb-2">
+              <label htmlFor="name" className="block text-sm font-medium text-white/60 mb-2">
                 Display Name
               </label>
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
                 <input
                   type="text"
-                  id="displayName"
-                  value={formData.displayName}
-                  onChange={(e) => setFormData(prev => ({ ...prev, displayName: e.target.value }))}
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                   className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="Your display name"
                 />
@@ -99,12 +89,18 @@ export function PreferencesPanel() {
               <input
                 type="email"
                 id="email"
-                value={user.primaryEmailAddress?.emailAddress || ''}
+                value={user.email}
                 disabled
                 className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40"
               />
             </div>
           </div>
+
+          {error && (
+            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
+              {error}
+            </div>
+          )}
 
           <button
             type="submit"

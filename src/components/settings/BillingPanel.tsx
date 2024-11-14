@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { paymentService } from '../../services/payment.service';
 import type { SubscriptionPlan } from '../../services/payment.service';
 
@@ -28,7 +28,7 @@ interface BillingPanelProps {
 }
 
 export function BillingPanel({ onSuccess, onError }: BillingPanelProps) {
-  const { user } = useUser();
+  const { user } = useAuth();
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,11 +39,13 @@ export function BillingPanel({ onSuccess, onError }: BillingPanelProps) {
   const [showAddCard, setShowAddCard] = useState(false);
 
   useEffect(() => {
-    loadPlans();
-    loadCurrentPlan();
-    loadPaymentMethods();
-    loadInvoices();
-  }, []);
+    if (user) {
+      loadPlans();
+      loadCurrentPlan();
+      loadPaymentMethods();
+      loadInvoices();
+    }
+  }, [user]);
 
   useEffect(() => {
     loadPlans();
@@ -67,10 +69,9 @@ export function BillingPanel({ onSuccess, onError }: BillingPanelProps) {
 
   const loadCurrentPlan = async () => {
     try {
-      const metadata = user?.publicMetadata;
-      if (metadata && 'planId' in metadata) {
-        setCurrentPlan(metadata.planId as string);
-      }
+      // Get plan based on user's role
+      const planId = user?.role === 'admin' ? 'premium' : 'free';
+      setCurrentPlan(planId);
     } catch (err) {
       console.error('Error loading current plan:', err);
     }
@@ -112,10 +113,12 @@ export function BillingPanel({ onSuccess, onError }: BillingPanelProps) {
   };
 
   const handleManageBilling = async () => {
+    if (!user) return;
+    
     try {
       setLoading(true);
       setError(null);
-      const { url } = await paymentService.createPortalSession(user?.id || '');
+      const { url } = await paymentService.createPortalSession(user.id);
       window.location.href = url;
     } catch (err) {
       const message = 'Failed to open billing portal';
@@ -186,6 +189,8 @@ export function BillingPanel({ onSuccess, onError }: BillingPanelProps) {
       </div>
     );
   }
+
+  if (!user) return null;
 
   return (
     <div className="space-y-8">

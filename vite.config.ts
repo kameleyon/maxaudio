@@ -9,19 +9,12 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
   // Load env file based on `mode` in the current working directory.
   const env = loadEnv(mode, process.cwd(), '');
 
-  // HTTPS configuration based on environment
-  const httpsConfig: ServerOptions['https'] = mode === 'production' ? undefined : {
-    key: fs.readFileSync(path.resolve(__dirname, '.cert/key.pem')),
-    cert: fs.readFileSync(path.resolve(__dirname, '.cert/cert.pem')),
-  };
-
   return {
     plugins: [react()],
     server: {
       port: 5174,
       host: true,
       open: true,
-      https: httpsConfig,
       proxy: {
         '/api': {
           target: 'http://localhost:5001',

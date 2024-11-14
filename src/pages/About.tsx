@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useUser } from '@clerk/clerk-react'
+import { useAuth } from '../contexts/AuthContext'
 import { Tabs } from '../components/settings/Tabs'
 import { CompanyInfo } from '../components/about/CompanyInfo'
 import { Careers } from '../components/about/Careers'
@@ -9,9 +9,9 @@ import { AdminSection } from '../components/about/AdminSection'
 
 export function About() {
   const [activeTab, setActiveTab] = useState('company')
-  const { user } = useUser()
+  const { user } = useAuth()
 
-  const isAdmin = user?.publicMetadata?.role === 'admin'
+  const isAdmin = user?.role === 'admin'
 
   const tabs = [
     { id: 'company', label: 'Company' },

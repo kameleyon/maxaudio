@@ -14,12 +14,19 @@ axios.interceptors.request.use(
   }
 );
 
+interface UserPreferences {
+  preferredLanguage?: string;
+  emailNotifications?: boolean;
+  theme?: 'light' | 'dark' | 'system';
+}
+
 interface User {
   id: string;
   username: string;
   email: string;
   name: string;
   role: string;
+  preferences?: UserPreferences;
 }
 
 interface LoginResponse {
@@ -148,7 +155,21 @@ class AuthService {
       throw new Error('Failed to get user');
     }
   }
+
+  // Update user preferences
+  async updatePreferences(preferences: UserPreferences): Promise<User> {
+    try {
+      const response = await axios.put<User>('/api/user/preferences', { preferences });
+      return response.data;
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.data) {
+        const apiError = error.response.data as ApiError;
+        throw new Error(apiError.error || 'Failed to update preferences');
+      }
+      throw new Error('Failed to update preferences');
+    }
+  }
 }
 
 export const authService = new AuthService();
-export type { RegisterData, User };
+export type { RegisterData, User, UserPreferences };

@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { X, CreditCard, Shield, AlertCircle } from 'lucide-react';
 import type { SubscriptionTier } from '../../config/subscription-tiers';
 import { stripeService } from '../../services/stripe.service';
-import { useUser, useAuth } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { authService } from '../../services/auth.service';
 
 interface UpgradeModalProps {
   isOpen: boolean;
@@ -25,12 +26,11 @@ export function UpgradeModal({
   currentTier,
   billingCycle
 }: UpgradeModalProps) {
-  const { user } = useUser();
-  const { getToken } = useAuth();
+  const { user } = useAuth();
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen || !selectedTier) return null;
+  if (!isOpen || !selectedTier || !user) return null;
 
   const isUpgrade = selectedTier.monthlyPrice > currentTier.monthlyPrice;
   const price = billingCycle === 'monthly' 
@@ -78,7 +78,7 @@ export function UpgradeModal({
       setIsProcessing(true);
       setError(null);
 
-      const token = await getToken();
+      const token = authService.getToken();
       if (!token) {
         throw new Error('No authentication token available');
       }
@@ -98,12 +98,12 @@ export function UpgradeModal({
           priceId,
           successUrl: `${returnUrl}&result=success`,
           cancelUrl: `${returnUrl}&result=canceled`,
-          customerId: user?.id || '',
-          clientReferenceId: user?.id || ''
+          customerId: user.id,
+          clientReferenceId: user.id
         }, token);
       } else {
         // Existing subscription - update the subscription
-        const subscriptionId = user?.publicMetadata?.subscriptionId as string;
+        const subscriptionId = user.id; // Use user ID as subscription ID for now
         if (!subscriptionId) {
           throw new Error('No active subscription found');
         }

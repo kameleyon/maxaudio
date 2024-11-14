@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/auth.service';
@@ -95,6 +95,7 @@ export function SignUpForm() {
 
     try {
       await register(formData);
+      // Redirect to welcome page which will show the modal
       navigate('/welcome');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useUser } from '@clerk/clerk-react';
+import { useAuth } from '../../contexts/AuthContext';
 import { getVoicesByTier, type VoicePreset } from '../../config/voice-presets';
 import { Settings, Play, Volume2, RefreshCw, AlertCircle } from 'lucide-react';
 
@@ -22,7 +22,7 @@ const getAudioEndpoint = () => {
 };
 
 export function AudioGeneratorTest() {
-  const { user, isSignedIn } = useUser();
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -39,23 +39,11 @@ export function AudioGeneratorTest() {
 
   // Load user preferences and available voices
   useEffect(() => {
-    if (isSignedIn && user) {
-      // Get user's subscription tier
-      const tier = (user.publicMetadata?.subscriptionTier as string) || 'free';
+    if (user) {
+      // Get user's subscription tier based on role
+      const tier = user.role === 'admin' ? 'premium' : 'free';
       const voices = getVoicesByTier(tier as 'free' | 'pro' | 'premium');
       setAvailableVoices(voices);
-
-      // Load user preferences
-      const preferences = user.publicMetadata?.preferences as UserPreferences;
-      if (preferences) {
-        if (preferences.defaultVoiceId) {
-          const defaultVoice = voices.find(v => v.id === preferences.defaultVoiceId);
-          if (defaultVoice) setSelectedVoice(defaultVoice);
-        }
-        if (preferences.defaultSettings) {
-          setSettings(preferences.defaultSettings);
-        }
-      }
 
       // Set usage limits based on tier
       const limits = {
@@ -71,7 +59,7 @@ export function AudioGeneratorTest() {
         .then(data => setCurrentUsage(data.currentUsage))
         .catch(console.error);
     }
-  }, [isSignedIn, user]);
+  }, [user]);
 
   const savePreferences = async () => {
     if (!user) return;
@@ -82,10 +70,10 @@ export function AudioGeneratorTest() {
     };
 
     try {
-      await user.update({
-        unsafeMetadata: {
-          preferences
-        }
+      await fetch('/api/user/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ preferences })
       });
     } catch (err) {
       console.error('Failed to save preferences:', err);
@@ -132,7 +120,7 @@ export function AudioGeneratorTest() {
     }
   };
 
-  if (!isSignedIn) {
+  if (!user) {
     return (
       <div className="p-4 bg-white/5 rounded-lg border border-white/10">
         <p className="text-center text-white/60">Please sign in to use the audio generator.</p>
