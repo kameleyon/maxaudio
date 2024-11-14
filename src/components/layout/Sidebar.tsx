@@ -20,6 +20,7 @@ import {
   Menu
 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
+import { debounce } from 'lodash' // Ensure lodash is installed
 
 export function Sidebar() {
   const [isExpanded, setIsExpanded] = useState(false)
@@ -33,13 +34,13 @@ export function Sidebar() {
   const isAdmin = user?.publicMetadata?.role === 'admin'
 
   useEffect(() => {
-    const handleResize = () => {
+    const handleResize = debounce(() => {
       const mobile = window.innerWidth < 768
       setIsMobile(mobile)
       if (!mobile) {
         setIsExpanded(false)
       }
-    }
+    }, 200)
 
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
@@ -61,7 +62,7 @@ export function Sidebar() {
     { icon: Wand2, label: 'Studio', path: '/studio' },
     { icon: FolderOpen, label: 'My Files', path: '/files' },
     { icon: Mic, label: 'My Voices', path: '/voice-cloning' },
-   // { icon: Headphones, label: 'TTS Test', path: '/tts-test' },
+    // { icon: Headphones, label: 'TTS Test', path: '/tts-test' },
     { icon: Settings, label: 'Settings', path: '/settings' },
     { icon: HelpCircle, label: 'Support', path: '/help' },
     { icon: Bell, label: 'Updates', path: '/notifications' },
@@ -69,12 +70,32 @@ export function Sidebar() {
     ...(isAdmin ? [{ icon: Shield, label: 'Admin', path: '/admin' }] : [])
   ]
 
+  const handleToggle = () => {
+    if (isMobile) {
+      setIsExpanded(prev => !prev)
+    }
+  }
+
+  const handleMouseEnter = () => {
+    if (!isMobile) {
+      setIsExpanded(true)
+    }
+  }
+
+  const handleMouseLeave = () => {
+    if (!isMobile) {
+      setIsExpanded(false)
+    }
+  }
+
   const toggleButton = (
     <button
       className={`absolute ${isMobile ? 'top-0 -right-10' : '-right-3 top-6'} bg-[#63248d] rounded-full p-1.5 text-white transition-all duration-300 ${
         isMobile && !isExpanded ? 'opacity-100' : isMobile ? 'opacity-0' : 'opacity-100'
       }`}
-      onClick={() => setIsExpanded(!isExpanded)}
+      onClick={handleToggle}
+      aria-label="Toggle Sidebar"
+      aria-expanded={isExpanded}
     >
       {isExpanded ? (
         <ChevronLeft className="w-4 h-4" />
@@ -89,22 +110,23 @@ export function Sidebar() {
       {/* Mobile overlay */}
       {isMobile && isExpanded && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 top-32   "
+          className="fixed inset-0 bg-black/50 z-40 top-32"
           onClick={() => setIsExpanded(false)}
+          aria-hidden="true"
         />
       )}
 
       {/* Sidebar */}
       <div
-        className={`fixed left-0  mt-4 top-12 h-[calc(100vh-4rem)] z-40 bg-[#0f0035]/90 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
+        className={`fixed left-0 mt-4 top-12 h-[calc(100vh-4rem)] z-40 bg-[#0f0035]/90 backdrop-blur-sm border-r border-white/10 transition-all duration-300 ${
           isExpanded ? 'w-52' : isMobile ? 'w-0' : 'w-16'
         }`}
-        onMouseEnter={() => !isMobile && setIsExpanded(true)}
-        onMouseLeave={() => !isMobile && setIsExpanded(false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {toggleButton}
 
-        <div className={`py-4 flex flex-col h-full ${!isExpanded && isMobile ? 'hidden' : ''}`}>
+        <div className={`py-4 flex flex-col h-full ${isMobile && !isExpanded ? 'hidden' : ''}`}>
           <nav className="flex-1">
             <ul className="space-y-2">
               {menuItems.map((item) => (
