@@ -1,18 +1,5 @@
 import axios, { AxiosError } from 'axios';
-
-// Configure axios defaults
-axios.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
+import api from './api';
 
 interface UserPreferences {
   preferredLanguage?: string;
@@ -31,12 +18,19 @@ interface User {
 
 interface LoginResponse {
   token: string;
+  refreshToken: string;
   user: User;
 }
 
 interface RegisterResponse {
   token: string;
+  refreshToken: string;
   user: User;
+}
+
+interface RefreshResponse {
+  token: string;
+  refreshToken: string;
 }
 
 interface RegisterData {
@@ -56,16 +50,62 @@ interface AvailabilityResponse {
 
 class AuthService {
   private token: string | null = null;
+  private refreshToken: string | null = null;
+  private refreshPromise: Promise<string> | null = null;
 
   constructor() {
-    // Try to get token from localStorage
+    // Try to get tokens from localStorage
     this.token = localStorage.getItem('token');
+    this.refreshToken = localStorage.getItem('refreshToken');
+
+    // Set up axios interceptor for token refresh
+    api.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+        const originalRequest = error.config;
+
+        // If error is 401 and not a refresh token request
+        if (error.response?.status === 401 && !originalRequest._retry && this.refreshToken) {
+          if (!this.refreshPromise) {
+            this.refreshPromise = this.refreshAccessToken();
+          }
+
+          try {
+            const newToken = await this.refreshPromise;
+            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+            originalRequest._retry = true;
+            return api(originalRequest);
+          } catch (refreshError) {
+            // If refresh fails, logout user
+            this.logout();
+            throw refreshError;
+          } finally {
+            this.refreshPromise = null;
+          }
+        }
+
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  private async refreshAccessToken(): Promise<string> {
+    try {
+      const response = await api.post<RefreshResponse>('/api/auth/refresh', {
+        refreshToken: this.refreshToken
+      });
+      this.setTokens(response.data.token, response.data.refreshToken);
+      return response.data.token;
+    } catch (error) {
+      this.logout();
+      throw error;
+    }
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await axios.post<LoginResponse>('/api/auth/login', { email, password });
-      this.setToken(response.data.token);
+      const response = await api.post<LoginResponse>('/api/auth/login', { email, password });
+      this.setTokens(response.data.token, response.data.refreshToken);
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {
@@ -78,8 +118,8 @@ class AuthService {
 
   async register(data: RegisterData): Promise<RegisterResponse> {
     try {
-      const response = await axios.post<RegisterResponse>('/api/auth/register', data);
-      this.setToken(response.data.token);
+      const response = await api.post<RegisterResponse>('/api/auth/register', data);
+      this.setTokens(response.data.token, response.data.refreshToken);
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {
@@ -92,7 +132,7 @@ class AuthService {
 
   async checkUsernameAvailability(username: string): Promise<boolean> {
     try {
-      const response = await axios.get<AvailabilityResponse>(`/api/auth/check-username/${username}`);
+      const response = await api.get<AvailabilityResponse>(`/api/auth/check-username/${username}`);
       return response.data.available;
     } catch (error) {
       console.error('Error checking username:', error);
@@ -102,7 +142,7 @@ class AuthService {
 
   async checkEmailAvailability(email: string): Promise<boolean> {
     try {
-      const response = await axios.get<AvailabilityResponse>(`/api/auth/check-email/${email}`);
+      const response = await api.get<AvailabilityResponse>(`/api/auth/check-email/${email}`);
       return response.data.available;
     } catch (error) {
       console.error('Error checking email:', error);
@@ -112,17 +152,26 @@ class AuthService {
 
   logout(): void {
     localStorage.removeItem('token');
+    localStorage.removeItem('refreshToken');
     localStorage.removeItem('welcome_seen');
     this.token = null;
+    this.refreshToken = null;
+
+    // Call logout endpoint to invalidate refresh token
+    api.post('/api/auth/logout').catch(console.error);
   }
 
   isAuthenticated(): boolean {
-    // Check both localStorage and instance variable
+    // Check both localStorage and instance variables
     const localToken = localStorage.getItem('token');
-    if (localToken && !this.token) {
+    const localRefreshToken = localStorage.getItem('refreshToken');
+    
+    if (localToken && localRefreshToken && !this.token) {
       this.token = localToken;
+      this.refreshToken = localRefreshToken;
     }
-    return !!this.token;
+    
+    return !!this.token && !!this.refreshToken;
   }
 
   getToken(): string | null {
@@ -134,18 +183,19 @@ class AuthService {
     return this.token;
   }
 
-  private setToken(token: string): void {
+  private setTokens(token: string, refreshToken: string): void {
     localStorage.setItem('token', token);
+    localStorage.setItem('refreshToken', refreshToken);
     this.token = token;
+    this.refreshToken = refreshToken;
   }
 
-  // Get current user
   async getCurrentUser(): Promise<User> {
     try {
       if (!this.isAuthenticated()) {
         throw new Error('Not authenticated');
       }
-      const response = await axios.get<User>('/api/auth/me');
+      const response = await api.get<User>('/api/auth/me');
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {
@@ -156,10 +206,9 @@ class AuthService {
     }
   }
 
-  // Update user preferences
   async updatePreferences(preferences: UserPreferences): Promise<User> {
     try {
-      const response = await axios.put<User>('/api/user/preferences', { preferences });
+      const response = await api.put<User>('/api/user/preferences', { preferences });
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {

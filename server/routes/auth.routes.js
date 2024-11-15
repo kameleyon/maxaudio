@@ -6,6 +6,31 @@ const { User } = require('../models/user.model');
 const { requireAuth } = require('../middleware/auth');
 const emailService = require('../services/email.service');
 
+// Cookie options for JWT
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'strict',
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+};
+
+// Generate tokens
+const generateTokens = (userId) => {
+  const token = jwt.sign(
+    { userId },
+    process.env.JWT_SECRET,
+    { expiresIn: '15m' }
+  );
+
+  const refreshToken = jwt.sign(
+    { userId, version: 1 }, // version for token invalidation
+    process.env.JWT_SECRET,
+    { expiresIn: '7d' }
+  );
+
+  return { token, refreshToken };
+};
+
 // Register user
 router.post('/register', async (req, res) => {
   try {
@@ -36,12 +61,11 @@ router.post('/register', async (req, res) => {
     // Send verification email
     await emailService.sendVerificationEmail(email);
 
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate tokens
+    const { token, refreshToken } = generateTokens(user._id);
+
+    // Set refresh token in http-only cookie
+    res.cookie('refreshToken', refreshToken, cookieOptions);
 
     res.json({
       token,
@@ -152,12 +176,11 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid credentials' });
     }
 
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    );
+    // Generate tokens
+    const { token, refreshToken } = generateTokens(user._id);
+
+    // Set refresh token in http-only cookie
+    res.cookie('refreshToken', refreshToken, cookieOptions);
 
     res.json({
       token,
@@ -173,6 +196,43 @@ router.post('/login', async (req, res) => {
     console.error('Login error:', error);
     res.status(500).json({ error: 'Server error' });
   }
+});
+
+// Refresh token
+router.post('/refresh', async (req, res) => {
+  try {
+    const refreshToken = req.cookies.refreshToken;
+    
+    if (!refreshToken) {
+      return res.status(401).json({ error: 'No refresh token' });
+    }
+
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET);
+    
+    // Check if user exists
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Generate new tokens
+    const tokens = generateTokens(user._id);
+
+    // Set new refresh token in http-only cookie
+    res.cookie('refreshToken', tokens.refreshToken, cookieOptions);
+
+    res.json({ token: tokens.token });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(401).json({ error: 'Invalid refresh token' });
+  }
+});
+
+// Logout
+router.post('/logout', (req, res) => {
+  res.clearCookie('refreshToken');
+  res.json({ message: 'Logged out successfully' });
 });
 
 // Get current user

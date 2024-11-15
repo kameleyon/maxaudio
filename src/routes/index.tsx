@@ -1,6 +1,6 @@
 import { Routes, Route, useNavigate, useSearchParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { Layout } from '../components/layout/Layout';
 import { Home } from '../pages/Home';
 import { Studio } from '../pages/Studio';
@@ -55,7 +55,7 @@ function VerifyEmail() {
       }
 
       try {
-        const response = await axios.get(`/api/auth/verify-email?token=${token}`);
+        const response = await api.get(`/auth/verify-email?token=${token}`);
         setStatus('success');
         setMessage(response.data.message);
         
@@ -73,7 +73,7 @@ function VerifyEmail() {
   }, [searchParams, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f0035] to-[#40b4c7]">
       <div className="bg-white/10 backdrop-blur-sm p-8 rounded-lg border border-white/10 max-w-md w-full">
         <div className="text-center">
           {status === 'verifying' && (
@@ -145,7 +145,7 @@ function ResetPassword() {
     }
 
     try {
-      const response = await axios.post('/api/auth/reset-password', {
+      const response = await api.post('/auth/reset-password', {
         token,
         password
       });
@@ -163,7 +163,7 @@ function ResetPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0f0035] to-[#40b4c7]">
       <div className="bg-white/10 backdrop-blur-sm p-8 rounded-lg border border-white/10 max-w-md w-full">
         {status === 'form' && (
           <form onSubmit={handleSubmit} className="space-y-4">
