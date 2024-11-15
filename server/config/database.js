@@ -16,8 +16,9 @@ const connect = async () => {
       useUnifiedTopology: true,
       retryWrites: true,
       w: 'majority',
-      ssl: true,
-      authSource: 'admin'
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+      family: 4
     };
 
     // Connect to MongoDB Atlas
@@ -25,13 +26,31 @@ const connect = async () => {
     console.log('Connected to MongoDB Atlas successfully');
     console.log(`Database: ${dbName}`);
 
-    // Create indexes
-    await createIndexes();
-    console.log('Database indexes created successfully');
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('MongoDB connection error:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.log('MongoDB disconnected. Attempting to reconnect...');
+      setTimeout(connect, 5000);
+    });
+
+    mongoose.connection.on('connected', () => {
+      console.log('MongoDB reconnected successfully');
+    });
+
+    // Handle process termination
+    process.on('SIGINT', async () => {
+      await disconnect();
+      process.exit(0);
+    });
 
   } catch (error) {
     console.error('Failed to connect to MongoDB:', error);
-    throw error;
+    // Retry connection after delay
+    console.log('Retrying connection in 5 seconds...');
+    setTimeout(connect, 5000);
   }
 };
 
@@ -45,36 +64,7 @@ const disconnect = async () => {
   }
 };
 
-const createIndexes = async () => {
-  try {
-    // Get all model files
-    const fs = require('fs');
-    const path = require('path');
-    const modelsPath = path.join(__dirname, '../models');
-    
-    // Skip if models directory doesn't exist
-    if (!fs.existsSync(modelsPath)) {
-      return;
-    }
-
-    const modelFiles = fs.readdirSync(modelsPath)
-      .filter(file => file.endsWith('.model.js'));
-
-    // Create indexes for each model
-    for (const file of modelFiles) {
-      const model = require(path.join(modelsPath, file));
-      if (model.createIndexes) {
-        await model.createIndexes();
-      }
-    }
-  } catch (error) {
-    console.error('Error creating indexes:', error);
-    throw error;
-  }
-};
-
 module.exports = {
   connect,
-  disconnect,
-  createIndexes
+  disconnect
 };

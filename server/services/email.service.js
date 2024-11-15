@@ -3,13 +3,10 @@ const jwt = require('jsonwebtoken');
 
 // Create reusable transporter
 const transporter = nodemailer.createTransport({
-  service: 'gmail',  // Using 'gmail' instead of manual config
+  service: 'gmail',
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS
-  },
-  tls: {
-    rejectUnauthorized: false  // For testing only, remove in production
   }
 });
 
@@ -87,9 +84,6 @@ const verifyToken = (token, purpose) => {
 // Send email
 const sendEmail = async (to, template) => {
   try {
-    console.log('Sending email to:', to);
-    console.log('Using SMTP user:', process.env.SMTP_USER);
-    
     const info = await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to,

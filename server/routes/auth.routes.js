@@ -3,7 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models/user.model');
-const auth = require('../middleware/auth');
+const { requireAuth } = require('../middleware/auth');
 const emailService = require('../services/email.service');
 
 // Register user
@@ -176,7 +176,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Get current user
-router.get('/me', auth, async (req, res) => {
+router.get('/me', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password');
     res.json(user);
