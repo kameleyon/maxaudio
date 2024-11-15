@@ -16,6 +16,7 @@ import {
   Menu
 } from 'lucide-react'
 import { useTheme } from '../../contexts/ThemeContext'
+import { useAuth } from '../../hooks/useAuth'
 
 interface SidebarProps {
   isMobileMenuOpen: boolean;
@@ -26,6 +27,7 @@ export function Sidebar({ isMobileMenuOpen, toggleMobileMenu }: SidebarProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const { theme, toggleTheme } = useTheme()
+  const { logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   
@@ -48,8 +50,9 @@ export function Sidebar({ isMobileMenuOpen, toggleMobileMenu }: SidebarProps) {
     }
   }, [location, isMobile, toggleMobileMenu, isMobileMenuOpen])
 
-  const handleSignOut = async () => {
-    navigate('/')
+  const handleSignOut = () => {
+    logout();
+    navigate('/');
   }
 
   const menuItems = [

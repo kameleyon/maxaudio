@@ -73,15 +73,23 @@ export function SignUpForm() {
       return;
     }
 
-    // Validate password length
-    if (formData.password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    // Validate password length and complexity
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(formData.password)) {
+      setError('Password must be at least 8 characters long, with at least 1 capital letter, 1 number, and 1 symbol');
       return;
     }
 
     // Validate username format
     if (!/^[a-zA-Z0-9_]+$/.test(formData.username)) {
       setError('Username can only contain letters, numbers, and underscores');
+      return;
+    }
+
+     // Reinforce email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      setError('Please enter a valid email address');
       return;
     }
 
@@ -95,8 +103,8 @@ export function SignUpForm() {
 
     try {
       await register(formData);
-      // Redirect to welcome page which will show the modal
-      navigate('/welcome');
+      // Redirect to the NewUserRedirect component instead of /studio
+      navigate('/new-user-redirect'); // Replace with the appropriate route for NewUserRedirect
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {

@@ -18,6 +18,7 @@ import { NotificationProvider } from './contexts/NotificationContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { AuthProvider } from './contexts/AuthContext';
 import { UserProvider } from './contexts/UserContext';
+import { NewUserRedirect } from './components/auth/NewUserRedirect';
 import { NotificationManager } from './components/notifications/NotificationManager';
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
             <Routes>
               <Route element={<Layout />}>
                 <Route index element={<Home />} />
+                <Route path="/new-user-redirect" element={<NewUserRedirect />} />
                 <Route path="sign-up" element={<SignUp />} />
                 <Route path="studio" element={
                   <ProtectedRoute>
