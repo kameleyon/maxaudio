@@ -1,204 +1,211 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
-const User = require('../models/user.model');
+const bcrypt = require('bcryptjs');
+const { User } = require('../models/user.model');
+const auth = require('../middleware/auth');
+const emailService = require('../services/email.service');
 
-// Helper function to generate JWT token
-const generateToken = (user) => {
-  return jwt.sign(
-    { 
-      id: user.id,
-      email: user.email,
-      role: user.role 
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: '7d' }
-  );
-};
+// Register user
+router.post('/register', async (req, res) => {
+  try {
+    const { email, password, username, name } = req.body;
+
+    // Check if user exists
+    let user = await User.findOne({ email });
+    if (user) {
+      return res.status(400).json({ error: 'User already exists' });
+    }
+
+    // Create user
+    user = new User({
+      email,
+      password,
+      username,
+      name,
+      isVerified: false
+    });
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(password, salt);
+
+    // Save user
+    await user.save();
+
+    // Send verification email
+    await emailService.sendVerificationEmail(email);
+
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        name: user.name,
+        isVerified: user.isVerified
+      }
+    });
+  } catch (error) {
+    console.error('Registration error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Verify email
+router.get('/verify-email', async (req, res) => {
+  try {
+    const { token } = req.query;
+    
+    // Verify token
+    const decoded = emailService.verifyToken(token, 'email_verification');
+    
+    // Update user
+    const user = await User.findOneAndUpdate(
+      { email: decoded.email },
+      { isVerified: true },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'Email verified successfully' });
+  } catch (error) {
+    console.error('Email verification error:', error);
+    res.status(400).json({ error: 'Invalid or expired verification token' });
+  }
+});
+
+// Request password reset
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Send password reset email
+    await emailService.sendPasswordResetEmail(email);
+
+    res.json({ message: 'Password reset email sent' });
+  } catch (error) {
+    console.error('Password reset request error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Reset password
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, password } = req.body;
+    
+    // Verify token
+    const decoded = emailService.verifyToken(token, 'password_reset');
+    
+    // Update password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const user = await User.findOneAndUpdate(
+      { email: decoded.email },
+      { password: hashedPassword },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ message: 'Password reset successfully' });
+  } catch (error) {
+    console.error('Password reset error:', error);
+    res.status(400).json({ error: 'Invalid or expired reset token' });
+  }
+});
+
+// Login
+router.post('/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if user exists
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ error: 'Invalid credentials' });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env.JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        username: user.username,
+        name: user.name,
+        isVerified: user.isVerified
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Get current user
+router.get('/me', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select('-password');
+    res.json(user);
+  } catch (error) {
+    console.error('Get user error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 // Check username availability
 router.get('/check-username/:username', async (req, res) => {
   try {
-    const { username } = req.params;
-    const user = await User.findOne({ username: username.toLowerCase() });
+    const user = await User.findOne({ username: req.params.username });
     res.json({ available: !user });
   } catch (error) {
     console.error('Username check error:', error);
-    res.status(500).json({ error: 'Error checking username' });
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
 // Check email availability
 router.get('/check-email/:email', async (req, res) => {
   try {
-    const { email } = req.params;
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const user = await User.findOne({ email: req.params.email });
     res.json({ available: !user });
   } catch (error) {
     console.error('Email check error:', error);
-    res.status(500).json({ error: 'Error checking email' });
+    res.status(500).json({ error: 'Server error' });
   }
-});
-
-// Register new user
-router.post('/register', async (req, res) => {
-  try {
-    const { username, email, password, name } = req.body;
-
-    // Validate required fields
-    if (!username || !email || !password || !name) {
-      return res.status(400).json({ 
-        error: 'Please provide all required fields' 
-      });
-    }
-
-    // Check if user already exists
-    const existingUser = await User.findOne({
-      $or: [{ email }, { username }]
-    });
-
-    if (existingUser) {
-      return res.status(400).json({ 
-        error: 'User with this email or username already exists' 
-      });
-    }
-
-    // Create new user
-    const user = new User({
-      username,
-      email,
-      password,
-      name,
-      role: email === 'kameleyon@outlook.com' ? 'admin' : 'user'
-    });
-
-    await user.save();
-
-    // Generate token
-    const token = generateToken(user);
-
-    res.status(201).json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Registration error:', error);
-    res.status(500).json({ error: 'Error creating user' });
-  }
-});
-
-// Login user
-router.post('/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Find user and include password for comparison
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Compare password
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    // Generate token
-    const token = generateToken(user);
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Error logging in' });
-  }
-});
-
-// Get current user
-router.get('/me', requireAuth, async (req, res) => {
-  try {
-    const user = await User.findById(req.user.id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    res.json({
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      subscription: user.subscription,
-      preferences: user.preferences,
-      usage: user.usage
-    });
-  } catch (error) {
-    console.error('Get user error:', error);
-    res.status(500).json({ error: 'Error getting user data' });
-  }
-});
-
-// Verify admin status
-router.get('/verify-admin', requireAdmin, (req, res) => {
-  res.json({
-    verified: true,
-    role: 'admin',
-    permissions: ['admin:access', 'admin:manage']
-  });
-});
-
-// Update user profile
-router.put('/profile', requireAuth, async (req, res) => {
-  try {
-    const { name, password } = req.body;
-    const user = await User.findById(req.user.id).select('+password');
-
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
-
-    // Update fields
-    if (name) user.name = name;
-    if (password) user.password = password;
-
-    await user.save();
-
-    res.json({
-      message: 'Profile updated successfully',
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        name: user.name,
-        role: user.role
-      }
-    });
-  } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ error: 'Error updating profile' });
-  }
-});
-
-// Logout (client-side only - invalidate token)
-router.post('/logout', (req, res) => {
-  res.status(200).json({ message: 'Logged out successfully' });
 });
 
 module.exports = router;
