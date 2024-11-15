@@ -91,7 +91,7 @@ class AuthService {
 
   private async refreshAccessToken(): Promise<string> {
     try {
-      const response = await api.post<RefreshResponse>('/api/auth/refresh', {
+      const response = await api.post<RefreshResponse>('/auth/refresh', {
         refreshToken: this.refreshToken
       });
       this.setTokens(response.data.token, response.data.refreshToken);
@@ -104,7 +104,7 @@ class AuthService {
 
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      const response = await api.post<LoginResponse>('/api/auth/login', { email, password });
+      const response = await api.post<LoginResponse>('/auth/login', { email, password });
       this.setTokens(response.data.token, response.data.refreshToken);
       return response.data;
     } catch (error) {
@@ -118,7 +118,7 @@ class AuthService {
 
   async register(data: RegisterData): Promise<RegisterResponse> {
     try {
-      const response = await api.post<RegisterResponse>('/api/auth/register', data);
+      const response = await api.post<RegisterResponse>('/auth/register', data);
       this.setTokens(response.data.token, response.data.refreshToken);
       return response.data;
     } catch (error) {
@@ -132,7 +132,7 @@ class AuthService {
 
   async checkUsernameAvailability(username: string): Promise<boolean> {
     try {
-      const response = await api.get<AvailabilityResponse>(`/api/auth/check-username/${username}`);
+      const response = await api.get<AvailabilityResponse>(`/auth/check-username/${username}`);
       return response.data.available;
     } catch (error) {
       console.error('Error checking username:', error);
@@ -142,7 +142,7 @@ class AuthService {
 
   async checkEmailAvailability(email: string): Promise<boolean> {
     try {
-      const response = await api.get<AvailabilityResponse>(`/api/auth/check-email/${email}`);
+      const response = await api.get<AvailabilityResponse>(`/auth/check-email/${email}`);
       return response.data.available;
     } catch (error) {
       console.error('Error checking email:', error);
@@ -158,7 +158,7 @@ class AuthService {
     this.refreshToken = null;
 
     // Call logout endpoint to invalidate refresh token
-    api.post('/api/auth/logout').catch(console.error);
+    api.post('/auth/logout').catch(console.error);
   }
 
   isAuthenticated(): boolean {
@@ -195,7 +195,7 @@ class AuthService {
       if (!this.isAuthenticated()) {
         throw new Error('Not authenticated');
       }
-      const response = await api.get<User>('/api/auth/me');
+      const response = await api.get<User>('/auth/me');
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {
@@ -208,7 +208,7 @@ class AuthService {
 
   async updatePreferences(preferences: UserPreferences): Promise<User> {
     try {
-      const response = await api.put<User>('/api/user/preferences', { preferences });
+      const response = await api.put<User>('/user/preferences', { preferences });
       return response.data;
     } catch (error) {
       if (error instanceof AxiosError && error.response?.data) {

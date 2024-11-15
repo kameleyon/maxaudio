@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import axios from 'axios';
+import api from '../services/api';
 
 interface UsageStats {
   current: {
@@ -27,7 +27,7 @@ interface UsageStats {
 
 const fetchUsageStats = async (): Promise<UsageStats> => {
   try {
-    const { data } = await axios.get('/api/usage/stats');
+    const { data } = await api.get('/usage/stats');
     return data;
   } catch (error) {
     console.error('Error fetching usage stats:', error);
