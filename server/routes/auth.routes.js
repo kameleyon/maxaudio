@@ -1,5 +1,4 @@
-const express = require('express');
-const router = express.Router();
+const router = require('express').Router();
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { User } = require('../models/user.model');
@@ -10,7 +9,7 @@ const emailService = require('../services/email.service');
 const cookieOptions = {
   httpOnly: true,
   secure: process.env.NODE_ENV === 'production',
-  sameSite: 'strict',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
 };
 
@@ -201,7 +200,7 @@ router.post('/login', async (req, res) => {
 // Refresh token
 router.post('/refresh', async (req, res) => {
   try {
-    const refreshToken = req.cookies.refreshToken;
+    const refreshToken = req.cookies?.refreshToken;
     
     if (!refreshToken) {
       return res.status(401).json({ error: 'No refresh token' });
@@ -231,7 +230,7 @@ router.post('/refresh', async (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  res.clearCookie('refreshToken');
+  res.clearCookie('refreshToken', cookieOptions);
   res.json({ message: 'Logged out successfully' });
 });
 
@@ -239,6 +238,9 @@ router.post('/logout', (req, res) => {
 router.get('/me', requireAuth, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     res.json(user);
   } catch (error) {
     console.error('Get user error:', error);

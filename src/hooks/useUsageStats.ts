@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { AxiosError } from 'axios';
 import api from '../services/api';
 
 interface UsageStats {
@@ -25,13 +26,28 @@ interface UsageStats {
   lastUpdated: string;
 }
 
+interface ErrorResponse {
+  message: string;
+  status?: number;
+  data?: any;
+}
+
 const fetchUsageStats = async (): Promise<UsageStats> => {
   try {
     const { data } = await api.get('/usage/stats');
     return data;
   } catch (error) {
-    console.error('Error fetching usage stats:', error);
-    throw error;
+    const axiosError = error as AxiosError<ErrorResponse>;
+    console.error('Error details:', {
+      message: axiosError.message,
+      response: axiosError.response?.data,
+      status: axiosError.response?.status
+    });
+    throw new Error(
+      axiosError.response?.data?.message || 
+      axiosError.message || 
+      'Failed to fetch usage statistics'
+    );
   }
 };
 
@@ -42,7 +58,12 @@ const getUsagePercentage = (used: number, total: number): number => {
 };
 
 export const useUsageStats = () => {
-  const { data, isLoading: loading, error, refetch } = useQuery<UsageStats, Error>({
+  const { 
+    data: stats, 
+    isLoading: loading, 
+    error,
+    refetch
+  } = useQuery<UsageStats, Error>({
     queryKey: ['usageStats'],
     queryFn: fetchUsageStats,
     refetchInterval: 60000, // Refetch every minute
@@ -50,20 +71,20 @@ export const useUsageStats = () => {
     staleTime: 30000 // Consider data stale after 30 seconds
   });
 
-  const warnings = data ? [
-    ...(getUsagePercentage(data.current.charactersUsed, data.limits.charactersPerMonth) >= 80 
+  const warnings = stats ? [
+    ...(getUsagePercentage(stats.current.charactersUsed, stats.limits.charactersPerMonth) >= 80 
       ? ['You are approaching your monthly character limit'] 
       : []),
-    ...(getUsagePercentage(data.current.requestsThisMinute, data.limits.requestsPerMinute) >= 80 
+    ...(getUsagePercentage(stats.current.requestsThisMinute, stats.limits.requestsPerMinute) >= 80 
       ? ['High API request rate detected'] 
       : []),
-    ...(getUsagePercentage(data.current.voiceClones, data.limits.voiceClones) >= 80 
+    ...(getUsagePercentage(stats.current.voiceClones, stats.limits.voiceClones) >= 80 
       ? ['You are approaching your voice clone limit'] 
       : [])
   ] : [];
 
   return {
-    stats: data,
+    stats,
     loading,
     error,
     getUsagePercentage,

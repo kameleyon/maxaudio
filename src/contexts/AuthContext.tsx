@@ -15,7 +15,7 @@ export interface User {
   metadata?: Record<string, any>;
 }
 
-export interface AuthContextType {
+interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -24,34 +24,33 @@ export interface AuthContextType {
   register: (data: { email: string; password: string; username: string }) => Promise<void>;
 }
 
-export const AuthContext = createContext<AuthContextType>({
+const defaultContext: AuthContextType = {
   user: null,
   isAuthenticated: false,
   isLoading: true,
   login: async () => {},
   logout: () => {},
   register: async () => {},
-});
+};
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+export const AuthContext = createContext<AuthContextType>(defaultContext);
 
-export function AuthProvider({ children }: AuthProviderProps) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
       try {
-        const token = localStorage.getItem('auth_token');
+        const token = authService.getToken();
         if (token) {
           const userData = await authService.validateToken(token);
           setUser(userData);
         }
       } catch (error) {
         console.error('Auth initialization error:', error);
-        localStorage.removeItem('auth_token');
+        authService.logout();
+        setUser(null);
       } finally {
         setIsLoading(false);
       }
@@ -62,25 +61,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const login = async (email: string, password: string) => {
     try {
-      const { user: userData, token } = await authService.login(email, password);
-      localStorage.setItem('auth_token', token);
-      setUser(userData);
+      const response = await authService.login(email, password);
+      setUser(response.user);
     } catch (error) {
       console.error('Login error:', error);
       throw error;
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    setUser(null);
+  const logout = async () => {
+    try {
+      await authService.logout();
+      setUser(null);
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still clear user state even if logout request fails
+      setUser(null);
+    }
   };
 
   const register = async (data: { email: string; password: string; username: string }) => {
     try {
-      const { user: userData, token } = await authService.register(data);
-      localStorage.setItem('auth_token', token);
-      setUser(userData);
+      const response = await authService.register(data);
+      setUser(response.user);
     } catch (error) {
       console.error('Registration error:', error);
       throw error;

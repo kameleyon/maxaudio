@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Crown, Check, Calendar, CreditCard } from 'lucide-react'
-import { subscriptionTiers, specialOffers, type SubscriptionTier } from '../../config/subscription-tiers'
+import { subscriptionTiers, type SubscriptionTier } from '../../config/subscription-tiers'
 import { useAuth } from '../../contexts/AuthContext'
 import { UpgradeModal } from './UpgradeModal'
 import { UsageDisplay } from './UsageDisplay'
@@ -86,7 +86,6 @@ export function SubscriptionPanel() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {subscriptionTiers.map((tier) => {
           const price = billingCycle === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice / 12
-          const totalPrice = billingCycle === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice
           const { savings, percentage } = calculateYearlyDiscount(tier.monthlyPrice, tier.yearlyPrice)
           const isCurrentTier = tier.id === currentTier.id
           

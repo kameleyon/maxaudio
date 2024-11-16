@@ -1,12 +1,23 @@
 const jwt = require('jsonwebtoken');
-const { User } = require('../models/user.model');
+const { userService } = require('../services/user.service');
 
 const requireAuth = async (req, res, next) => {
   try {
     // Get token from header
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'No token provided' });
+      // Try to get token from cookie
+      const token = req.cookies?.refreshToken;
+      if (!token) {
+        return res.status(401).json({ error: 'No token provided' });
+      }
+      
+      // Verify refresh token
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = {
+        userId: decoded.userId
+      };
+      return next();
     }
 
     const token = authHeader.split(' ')[1];
@@ -14,18 +25,9 @@ const requireAuth = async (req, res, next) => {
     // Verify token
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Check if user still exists
-    const user = await User.findById(decoded.id);
-    if (!user) {
-      return res.status(401).json({ error: 'User no longer exists' });
-    }
-
-    // Add user to request
+    // Add user ID to request
     req.user = {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      username: user.username
+      userId: decoded.userId
     };
 
     next();
@@ -51,8 +53,9 @@ const requireAdmin = async (req, res, next) => {
       });
     });
 
-    // Check if user is admin
-    if (req.user.role !== 'admin') {
+    // Get user to check role
+    const user = await userService.getUser(req.user.userId);
+    if (user.role !== 'admin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
 
@@ -77,15 +80,9 @@ const optionalAuth = async (req, res, next) => {
     const token = authHeader.split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    const user = await User.findById(decoded.id);
-    if (user) {
-      req.user = {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        username: user.username
-      };
-    }
+    req.user = {
+      userId: decoded.userId
+    };
 
     next();
   } catch (error) {

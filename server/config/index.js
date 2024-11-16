@@ -1,9 +1,9 @@
-export const config = {
+const config = {
   port: process.env.PORT || 3000,
   environment: process.env.NODE_ENV || 'development',
   jwt: {
     secret: process.env.JWT_SECRET || 'your-secret-key',
-    expiresIn: '24h'
+    expiresIn: process.env.JWT_EXPIRES_IN || '24h'
   },
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
   google: {
@@ -38,4 +38,8 @@ export const config = {
       voiceClones: 0
     }
   }
+};
+
+module.exports = {
+  config
 };

@@ -3,25 +3,28 @@ const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
+const cookieParser = require('cookie-parser');
 const { connect: connectDb, disconnect: disconnectDb } = require('./config/database');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5001;
 const isDevelopment = process.env.NODE_ENV === 'development';
 
-// CORS configuration
+// CORS configuration with credentials
 const corsOptions = {
   origin: isDevelopment 
     ? ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174']
     : [process.env.PRODUCTION_CLIENT_URL],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'Stripe-Signature'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  maxAge: 86400 // 24 hours
+  maxAge: 86400, // 24 hours
+  exposedHeaders: ['set-cookie']
 };
 
 // Middleware
 app.use(cors(corsOptions));
+app.use(cookieParser()); // Add cookie parser before other middleware
 app.use(helmet({
   contentSecurityPolicy: isDevelopment ? false : {
     directives: {

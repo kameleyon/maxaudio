@@ -1,41 +1,42 @@
-import axios from 'axios';
+import api from './api';
 import { User } from '../contexts/AuthContext';
 
 export interface AuthResponse {
-  user: User;
   token: string;
-}
-
-export interface UserPreferences {
-  theme: 'light' | 'dark' | 'system';
-  emailNotifications: boolean;
-  language: string;
+  user: User;
 }
 
 class AuthService {
-  private baseUrl: string;
+  private tokenKey = 'token';
 
-  constructor() {
-    this.baseUrl = '/api/auth';
+  getToken(): string | null {
+    return localStorage.getItem(this.tokenKey);
+  }
+
+  setToken(token: string): void {
+    localStorage.setItem(this.tokenKey, token);
+  }
+
+  removeToken(): void {
+    localStorage.removeItem(this.tokenKey);
   }
 
   async login(email: string, password: string): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${this.baseUrl}/login`, {
-        email,
-        password,
-      });
-      return response.data;
+      const { data } = await api.post<AuthResponse>('/auth/login', { email, password });
+      this.setToken(data.token);
+      return data;
     } catch (error) {
       console.error('Login error:', error);
       throw error;
     }
   }
 
-  async register(data: { email: string; password: string; username: string }): Promise<AuthResponse> {
+  async register(userData: { email: string; password: string; username: string }): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${this.baseUrl}/register`, data);
-      return response.data;
+      const { data } = await api.post<AuthResponse>('/auth/register', userData);
+      this.setToken(data.token);
+      return data;
     } catch (error) {
       console.error('Registration error:', error);
       throw error;
@@ -44,68 +45,37 @@ class AuthService {
 
   async validateToken(token: string): Promise<User> {
     try {
-      const response = await axios.get(`${this.baseUrl}/validate`, {
+      const { data } = await api.get<User>('/auth/me', {
         headers: {
-          Authorization: `Bearer ${token}`,
-        },
+          Authorization: `Bearer ${token}`
+        }
       });
-      return response.data;
+      return data;
     } catch (error) {
       console.error('Token validation error:', error);
       throw error;
     }
   }
 
-  async updatePreferences(preferences: UserPreferences): Promise<void> {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No token found');
-    }
-
-    const response = await fetch('/api/auth/preferences', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ preferences }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update preferences');
-    }
-  }
-
-  async checkUsernameAvailability(username: string): Promise<boolean> {
+  async refreshToken(): Promise<string> {
     try {
-      const response = await axios.get(`${this.baseUrl}/check-username/${username}`);
-      return response.data.available;
+      const { data } = await api.post<{ token: string }>('/auth/refresh');
+      this.setToken(data.token);
+      return data.token;
     } catch (error) {
-      console.error('Username check error:', error);
-      throw error;
-    }
-  }
-
-  async checkEmailAvailability(email: string): Promise<boolean> {
-    try {
-      const response = await axios.get(`${this.baseUrl}/check-email/${email}`);
-      return response.data.available;
-    } catch (error) {
-      console.error('Email check error:', error);
+      console.error('Token refresh error:', error);
+      this.logout();
       throw error;
     }
   }
 
   logout(): void {
-    localStorage.removeItem('auth_token');
+    this.removeToken();
+    // Clear any other auth-related data from localStorage if needed
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('auth_token');
-  }
-
-  getToken(): string | null {
-    return localStorage.getItem('token');
+    return !!this.getToken();
   }
 }
 

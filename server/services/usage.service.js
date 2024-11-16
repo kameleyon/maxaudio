@@ -1,4 +1,4 @@
-import { userService } from './user.service.js';
+const { userService } = require('./user.service.js');
 const Stripe = require('stripe');
 
 const MAX_RETRY_ATTEMPTS = 3;
@@ -21,22 +21,35 @@ class UsageService {
     setInterval(() => this.cleanupCache(), 60000);
   }
 
-  // Retry mechanism for operations
-  async retryOperation(operation, maxAttempts = MAX_RETRY_ATTEMPTS) {
-    let lastError;
-    
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      try {
-        return await operation();
-      } catch (error) {
-        lastError = error;
-        if (attempt < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * attempt));
-        }
+  getTierLimits(tier) {
+    const limits = {
+      free: {
+        charactersPerMonth: 6000,
+        requestsPerMinute: 2,
+        voiceClones: 0
+      },
+      pro: {
+        charactersPerMonth: 100000,
+        requestsPerMinute: 10,
+        voiceClones: 3
+      },
+      premium: {
+        charactersPerMonth: 500000,
+        requestsPerMinute: 30,
+        voiceClones: 10
       }
-    }
-    
-    throw lastError;
+    };
+
+    return limits[tier] || limits.free;
+  }
+
+  getCurrentUsage(userId, type) {
+    const key = this.getUsageKey(userId, type);
+    return this.usageCache.get(key)?.amount || 0;
+  }
+
+  getUsageHistory(userId) {
+    return this.usageHistory.get(userId) || [];
   }
 
   // Get usage key for rate limiting
@@ -51,7 +64,10 @@ class UsageService {
 
   // Clean up expired cache entries
   cleanupCache() {
+    const now = Date.now();
     const currentMinute = this.getCurrentMinute();
+
+    // Clean up minute-based cache
     for (const [key, value] of this.usageCache.entries()) {
       const [, , minute] = key.split(':');
       if (Number(minute) < currentMinute) {
@@ -60,23 +76,91 @@ class UsageService {
     }
 
     // Clean up history older than 30 days
-    const thirtyDaysAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    for (const [key, value] of this.usageHistory.entries()) {
-      if (value.timestamp < thirtyDaysAgo) {
-        this.usageHistory.delete(key);
+    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
+    for (const [userId, history] of this.usageHistory.entries()) {
+      const filteredHistory = history.filter(entry => 
+        new Date(entry.date).getTime() > thirtyDaysAgo
+      );
+      if (filteredHistory.length === 0) {
+        this.usageHistory.delete(userId);
+      } else {
+        this.usageHistory.set(userId, filteredHistory);
       }
     }
   }
 
-  // Update user usage data
-  async updateUserUsage(userId, usageData) {
-    return this.retryOperation(async () => {
+  async getUserUsageStats(userId) {
+    try {
       const user = await userService.getUser(userId);
-      const currentUsage = user.metadata.usageData || {};
-      
+      const tier = user.role || 'free';
+      const limits = this.getTierLimits(tier);
+
+      // Get current usage
+      const currentUsage = {
+        charactersUsed: Number(user.metadata?.usageData?.charactersUsed || 0),
+        requestsThisMinute: this.getCurrentUsage(userId, 'api_request'),
+        voiceClones: Number(user.metadata?.usageData?.voiceClones || 0)
+      };
+
+      // Calculate remaining
+      const remaining = {
+        charactersPerMonth: Math.max(0, limits.charactersPerMonth - currentUsage.charactersUsed),
+        requestsPerMinute: Math.max(0, limits.requestsPerMinute - currentUsage.requestsThisMinute),
+        voiceClones: Math.max(0, limits.voiceClones - currentUsage.voiceClones)
+      };
+
+      // Get usage history
+      const history = this.getUsageHistory(userId);
+
+      return {
+        current: currentUsage,
+        limits,
+        remaining,
+        history,
+        lastUpdated: new Date().toISOString()
+      };
+    } catch (error) {
+      console.error('Error getting user usage stats:', error);
+      // Return default stats if there's an error
+      const limits = this.getTierLimits('free');
+      return {
+        current: {
+          charactersUsed: 0,
+          requestsThisMinute: 0,
+          voiceClones: 0
+        },
+        limits,
+        remaining: {
+          charactersPerMonth: limits.charactersPerMonth,
+          requestsPerMinute: limits.requestsPerMinute,
+          voiceClones: limits.voiceClones
+        },
+        history: [],
+        lastUpdated: new Date().toISOString()
+      };
+    }
+  }
+
+  async updateUserUsage(userId, usageData) {
+    try {
+      const user = await userService.getUser(userId);
+
+      // Update cache for minute-based metrics
+      if (usageData.requestsThisMinute) {
+        const key = this.getUsageKey(userId, 'api_request');
+        const currentAmount = this.getCurrentUsage(userId, 'api_request');
+        this.usageCache.set(key, {
+          amount: currentAmount + usageData.requestsThisMinute,
+          timestamp: Date.now()
+        });
+      }
+
+      // Update persistent usage data
+      const currentUsage = user.metadata?.usageData || {};
       const updatedUsage = {
         ...currentUsage,
-        ...usageData,
+        charactersUsed: (currentUsage.charactersUsed || 0) + (usageData.charactersUsed || 0),
+        voiceClones: (currentUsage.voiceClones || 0) + (usageData.voiceClones || 0),
         lastUpdated: new Date().toISOString()
       };
 
@@ -87,262 +171,34 @@ class UsageService {
         }
       });
 
-      // Store in history for trending
-      const historyKey = `${userId}:${new Date().toISOString()}`;
-      this.usageHistory.set(historyKey, {
-        ...updatedUsage,
-        timestamp: Date.now()
-      });
+      // Update history
+      const history = this.getUsageHistory(userId);
+      const today = new Date().toISOString().split('T')[0];
+      const todayEntry = history.find(entry => entry.date === today);
 
-      return updatedUsage;
-    });
-  }
-
-  // Track API request with improved caching
-  async trackRequest(userId) {
-    return this.retryOperation(async () => {
-      const key = this.getUsageKey(userId, 'api_request');
-      const currentCount = this.usageCache.get(key) || 0;
-      this.usageCache.set(key, currentCount + 1);
-      
-      const user = await userService.getUser(userId);
-      const subscriptionId = user.metadata.subscriptionId;
-      
-      if (!subscriptionId) {
-        throw new Error('No active subscription');
-      }
-
-      const stripe = getStripe();
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      const tier = subscription.items.data[0].price.lookup_key;
-      
-      const limits = {
-        pro: 15,
-        premium: 30
-      };
-
-      const limit = limits[tier] || 5;
-      
-      // Update usage history
-      await this.updateUserUsage(userId, {
-        requestsThisMinute: currentCount + 1,
-        lastRequestTime: new Date().toISOString()
-      });
-
-      return {
-        allowed: currentCount < limit,
-        current: currentCount + 1,
-        limit,
-        remaining: Math.max(0, limit - (currentCount + 1))
-      };
-    });
-  }
-
-  // Track character usage with history
-  async trackCharacters(userId, characterCount) {
-    return this.retryOperation(async () => {
-      const user = await userService.getUser(userId);
-      const currentUsage = Number(user.metadata.usageData?.charactersUsed || 0);
-      const newUsage = currentUsage + characterCount;
-
-      const subscriptionId = user.metadata.subscriptionId;
-      if (!subscriptionId) {
-        throw new Error('No active subscription');
-      }
-
-      const stripe = getStripe();
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      const tier = subscription.items.data[0].price.lookup_key;
-      
-      const limits = {
-        pro: 1000000,
-        premium: 3000000
-      };
-
-      const limit = limits[tier] || 10000;
-
-      // Update usage with history
-      await this.updateUserUsage(userId, {
-        charactersUsed: newUsage,
-        lastCharacterUpdate: new Date().toISOString()
-      });
-
-      return {
-        allowed: newUsage <= limit,
-        current: newUsage,
-        limit,
-        remaining: Math.max(0, limit - newUsage)
-      };
-    });
-  }
-
-  // Track voice clone usage with history
-  async trackVoiceClone(userId) {
-    return this.retryOperation(async () => {
-      const user = await userService.getUser(userId);
-      const currentClones = Number(user.metadata.usageData?.voiceClones || 0);
-      const newCount = currentClones + 1;
-
-      const subscriptionId = user.metadata.subscriptionId;
-      if (!subscriptionId) {
-        throw new Error('No active subscription');
-      }
-
-      const stripe = getStripe();
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      const tier = subscription.items.data[0].price.lookup_key;
-      
-      const limits = {
-        pro: 3,
-        premium: 10
-      };
-
-      const limit = limits[tier] || 0;
-
-      // Update usage with history
-      await this.updateUserUsage(userId, {
-        voiceClones: newCount,
-        lastCloneUpdate: new Date().toISOString()
-      });
-
-      return {
-        allowed: newCount <= limit,
-        current: newCount,
-        limit,
-        remaining: Math.max(0, limit - newCount)
-      };
-    });
-  }
-
-  // Reset monthly usage with history tracking
-  async resetMonthlyUsage(userId) {
-    return this.retryOperation(async () => {
-      const user = await userService.getUser(userId);
-      const previousUsage = user.metadata.usageData || {};
-      
-      // Store previous usage in history before reset
-      const historyKey = `${userId}:${new Date().toISOString()}:reset`;
-      this.usageHistory.set(historyKey, {
-        ...previousUsage,
-        timestamp: Date.now(),
-        type: 'reset'
-      });
-
-      await this.updateUserUsage(userId, {
-        charactersUsed: 0,
-        requestsThisMinute: 0,
-        lastResetDate: new Date().toISOString()
-      });
-    });
-  }
-
-  // Get usage trends
-  async getUsageTrends(userId) {
-    const trends = {
-      daily: new Map(),
-      weekly: new Map(),
-      monthly: new Map()
-    };
-
-    // Filter history entries for this user
-    const userHistory = Array.from(this.usageHistory.entries())
-      .filter(([key]) => key.startsWith(userId))
-      .map(([, value]) => value)
-      .sort((a, b) => a.timestamp - b.timestamp);
-
-    // Calculate daily averages
-    const dailyUsage = new Map();
-    for (const entry of userHistory) {
-      const date = new Date(entry.timestamp).toISOString().split('T')[0];
-      if (!dailyUsage.has(date)) {
-        dailyUsage.set(date, {
-          charactersUsed: 0,
-          requestCount: 0,
-          voiceClones: 0
+      if (todayEntry) {
+        Object.entries(usageData).forEach(([type, amount]) => {
+          todayEntry[type] = (todayEntry[type] || 0) + amount;
+        });
+      } else {
+        history.unshift({
+          date: today,
+          ...usageData
         });
       }
-      const current = dailyUsage.get(date);
-      dailyUsage.set(date, {
-        charactersUsed: Math.max(current.charactersUsed, entry.charactersUsed || 0),
-        requestCount: current.requestCount + (entry.requestsThisMinute || 0),
-        voiceClones: Math.max(current.voiceClones, entry.voiceClones || 0)
-      });
+
+      this.usageHistory.set(userId, history.slice(0, 30)); // Keep last 30 days
+
+      return this.getUserUsageStats(userId);
+    } catch (error) {
+      console.error('Error updating user usage:', error);
+      throw error;
     }
-
-    return {
-      daily: Array.from(dailyUsage.entries()).map(([date, usage]) => ({
-        date,
-        ...usage
-      })),
-      averages: {
-        charactersPerDay: Array.from(dailyUsage.values())
-          .reduce((sum, day) => sum + day.charactersUsed, 0) / dailyUsage.size,
-        requestsPerDay: Array.from(dailyUsage.values())
-          .reduce((sum, day) => sum + day.requestCount, 0) / dailyUsage.size
-      }
-    };
-  }
-
-  // Get current usage statistics with trends
-  async getUsageStats(userId) {
-    return this.retryOperation(async () => {
-      const user = await userService.getUser(userId);
-      const subscriptionId = user.metadata.subscriptionId;
-      
-      if (!subscriptionId) {
-        throw new Error('No active subscription');
-      }
-
-      const stripe = getStripe();
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      const tier = subscription.items.data[0].price.lookup_key;
-      
-      const limits = {
-        pro: {
-          requestsPerMinute: 15,
-          charactersPerMonth: 1000000,
-          voiceClones: 3
-        },
-        premium: {
-          requestsPerMinute: 30,
-          charactersPerMonth: 3000000,
-          voiceClones: 10
-        }
-      };
-
-      const tierLimits = limits[tier] || {
-        requestsPerMinute: 5,
-        charactersPerMonth: 10000,
-        voiceClones: 0
-      };
-
-      const currentUsage = {
-        charactersUsed: Number(user.metadata.usageData?.charactersUsed || 0),
-        voiceClones: Number(user.metadata.usageData?.voiceClones || 0),
-        requestsThisMinute: this.usageCache.get(this.getUsageKey(userId, 'api_request')) || 0
-      };
-
-      // Get usage trends
-      const trends = await this.getUsageTrends(userId);
-
-      return {
-        current: currentUsage,
-        limits: tierLimits,
-        remaining: {
-          charactersPerMonth: Math.max(0, tierLimits.charactersPerMonth - currentUsage.charactersUsed),
-          voiceClones: Math.max(0, tierLimits.voiceClones - currentUsage.voiceClones),
-          requestsPerMinute: Math.max(0, tierLimits.requestsPerMinute - currentUsage.requestsThisMinute)
-        },
-        trends,
-        lastUpdated: new Date().toISOString()
-      };
-    });
   }
 }
 
 const usageService = new UsageService();
 
 module.exports = {
-  usageService,
-  updateUserUsage: (userId, usageData) => usageService.updateUserUsage(userId, usageData)
+  usageService
 };

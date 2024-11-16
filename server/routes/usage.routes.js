@@ -6,47 +6,55 @@ const { usageService } = require('../services/usage.service');
 // Get usage stats
 router.get('/stats', requireAuth, async (req, res) => {
   try {
-    // Mock data for development
-    res.json({
-      current: {
-        charactersUsed: 5000,
-        requestsThisMinute: 30,
-        voiceClones: 2
-      },
-      limits: {
-        charactersPerMonth: 100000,
-        requestsPerMinute: 60,
-        voiceClones: 5
-      },
-      remaining: {
-        charactersPerMonth: 95000,
-        requestsPerMinute: 30,
-        voiceClones: 3
-      },
-      history: [
-        {
-          date: '11/11/2024',
-          requests: 2000,
-          storage: 1024 * 1024 * 30
-        },
-        {
-          date: '11/10/2024',
-          requests: 3500,
-          storage: 1024 * 1024 * 40
-        },
-        {
-          date: '11/09/2024',
-          requests: 4500,
-          storage: 1024 * 1024 * 50
-        }
-      ],
-      lastUpdated: new Date().toLocaleString()
-    });
+    const userId = req.user.userId;
+    const userStats = await usageService.getUserUsageStats(userId);
+    res.json(userStats);
   } catch (error) {
     console.error('Error getting usage stats:', error);
-    res.status(500).json({ 
-      error: 'Internal server error',
-      message: error.message 
+    // Return default stats if there's an error
+    const defaultStats = {
+      current: {
+        charactersUsed: 0,
+        requestsThisMinute: 0,
+        voiceClones: 0
+      },
+      limits: {
+        charactersPerMonth: 6000, // Free tier limits
+        requestsPerMinute: 2,
+        voiceClones: 0
+      },
+      remaining: {
+        charactersPerMonth: 6000,
+        requestsPerMinute: 2,
+        voiceClones: 0
+      },
+      history: [],
+      lastUpdated: new Date().toISOString()
+    };
+    res.json(defaultStats);
+  }
+});
+
+// Update usage stats
+router.post('/update', requireAuth, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { type, amount } = req.body;
+
+    if (!type || amount === undefined) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Missing required fields: type or amount'
+      });
+    }
+
+    const updatedStats = await usageService.updateUserUsage(userId, { [type]: amount });
+    res.json(updatedStats);
+  } catch (error) {
+    console.error('Error updating usage stats:', error);
+    res.status(500).json({
+      error: 'Failed to update usage statistics',
+      message: error.message
     });
   }
 });
@@ -54,28 +62,9 @@ router.get('/stats', requireAuth, async (req, res) => {
 // Get detailed usage history
 router.get('/history', requireAuth, async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    // Mock response with detailed history
-    res.json([
-      {
-        date: '11/11/2024',
-        requests: 4500,
-        storage: 1024 * 1024 * 50,
-        audioGenerated: 20,
-        averageAudioLength: 120,
-        peakUsageTime: '14:00',
-        errorRate: 0.02
-      },
-      {
-        date: '11/10/2024',
-        requests: 3500,
-        storage: 1024 * 1024 * 40,
-        audioGenerated: 15,
-        averageAudioLength: 90,
-        peakUsageTime: '15:30',
-        errorRate: 0.01
-      }
-    ]);
+    const userId = req.user.userId;
+    const history = await usageService.getUsageHistory(userId);
+    res.json(history);
   } catch (error) {
     console.error('Error getting usage history:', error);
     res.status(500).json({ 
@@ -88,12 +77,14 @@ router.get('/history', requireAuth, async (req, res) => {
 // Get current quota status
 router.get('/quota', requireAuth, async (req, res) => {
   try {
+    const userId = req.user.userId;
+    const stats = await usageService.getUserUsageStats(userId);
     res.json({
-      requestsUsed: 30,
-      requestsLimit: 60,
-      storageUsed: 1024 * 1024 * 100,
-      storageLimit: 1024 * 1024 * 1024,
-      resetDate: '11/25/2024'
+      requestsUsed: stats.current.requestsThisMinute,
+      requestsLimit: stats.limits.requestsPerMinute,
+      storageUsed: stats.current.charactersUsed,
+      storageLimit: stats.limits.charactersPerMonth,
+      resetDate: new Date(new Date().setDate(1)).toISOString() // First day of next month
     });
   } catch (error) {
     console.error('Error getting quota status:', error);
@@ -107,13 +98,15 @@ router.get('/quota', requireAuth, async (req, res) => {
 // Track usage event
 router.post('/track', requireAuth, async (req, res) => {
   try {
+    const userId = req.user.userId;
     const { eventType, metadata } = req.body;
-    // Mock response
+    const stats = await usageService.getUserUsageStats(userId);
     res.json({
       tracked: true,
       timestamp: new Date().toLocaleString(),
       eventType,
-      metadata
+      metadata,
+      currentUsage: stats.current
     });
   } catch (error) {
     console.error('Error tracking usage event:', error);

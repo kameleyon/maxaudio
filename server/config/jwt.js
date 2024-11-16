@@ -1,10 +1,10 @@
-import jwt from 'jsonwebtoken';
-import { config } from '../config/index.js';
+const jwt = require('jsonwebtoken');
+const { config } = require('./index.js');
 
 const JWT_SECRET = config.jwt.secret;
 const JWT_EXPIRES_IN = config.jwt.expiresIn;
 
-export const generateToken = (user) => {
+const generateToken = (user) => {
   return jwt.sign(
     { 
       userId: user.id,
@@ -15,7 +15,7 @@ export const generateToken = (user) => {
   );
 };
 
-export const verifyToken = (token) => {
+const verifyToken = (token) => {
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch (error) {
@@ -23,7 +23,7 @@ export const verifyToken = (token) => {
   }
 };
 
-export const generateRefreshToken = (user) => {
+const generateRefreshToken = (user) => {
   return jwt.sign(
     { userId: user.id },
     JWT_SECRET,
@@ -31,10 +31,17 @@ export const generateRefreshToken = (user) => {
   );
 };
 
-export const decodeToken = (token) => {
+const decodeToken = (token) => {
   try {
     return jwt.decode(token);
   } catch (error) {
     return null;
   }
+};
+
+module.exports = {
+  generateToken,
+  verifyToken,
+  generateRefreshToken,
+  decodeToken
 };

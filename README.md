@@ -1,4 +1,4 @@
-# AudioMax - Enterprise Text-to-Speech Platform
+# MaxAudio - Enterprise Text-to-Speech Platform
 
 ## Table of Contents
 1. [Overview](#overview)
@@ -17,19 +17,28 @@
 
 ## Overview
 
-AudioMax is a sophisticated text-to-speech platform that combines advanced AI capabilities with intuitive voice customization features. It enables users to generate high-quality audio content with customizable voices, making it ideal for content creators, educators, and professionals.
+MaxAudio is a sophisticated text-to-speech platform that combines advanced AI capabilities with intuitive voice customization features. It enables users to generate high-quality audio content with customizable voices, making it ideal for content creators, educators, and professionals.
 
 ### Vision
 To provide enterprise-grade text-to-speech capabilities with unmatched customization and quality, making audio content creation accessible and efficient.
 
 ### Key Differentiators
 - Advanced voice customization and cloning
-- Enterprise-grade security and scalability
+- Enterprise-grade security with JWT authentication
 - Comprehensive analytics and monitoring
 - Flexible subscription models
 - Robust file management system
 
 ## Core Features
+
+### Authentication & Security
+- **JWT-based Authentication**
+  - Secure token-based authentication
+  - Role-based access control (RBAC)
+  - Token refresh mechanism
+  - Secure password hashing
+  - Session management
+  - Two-factor authentication (optional)
 
 ### Text-to-Speech Engine
 - **Voice Synthesis**
@@ -57,282 +66,264 @@ To provide enterprise-grade text-to-speech capabilities with unmatched customiza
   - Project saving and versioning
   - Export in multiple formats (MP3, WAV, OGG)
 
-### File Management System
-- **Organization**
-  - Hierarchical folder structure
-  - Tags and metadata
-  - Smart folders
-  - Search functionality
-  - Batch operations
-  - Access control
-
-- **Storage Features**
-  - Cloud storage integration
-  - Automatic backup
-  - Version control
-  - User preferences management
-  - Subscription plans with Stripe integration
-  - Real-time usage tracking and analytics
-  - Smart notification system
-
-## Services Overview
-
-### Usage Service
-The `UsageService` is responsible for tracking user usage data, including API requests, character usage, and voice cloning. It implements a retry mechanism for operations and maintains an in-memory cache for usage data.
-
-### Notification Service
-The `NotificationService` handles sending notifications to users regarding their subscription status, payment confirmations, and usage limits. It supports both email and push notifications.
-
-### Subscription Service
-The `SubscriptionService` manages user subscriptions, including updating subscription status, handling cancellations, and recording payments. It integrates with Stripe for payment processing.
-
-## Routes Overview
-
-### Auth Routes
-The `auth.routes.js` file defines the authentication routes for the application, including login, registration, fetching user details, and logout functionalities.
-
-### Subscription Routes
-The `subscription.routes.js` file manages user subscriptions, including fetching subscription status, payment methods, and usage statistics. It also handles updating notification preferences and checking feature access.
-
-### Studio Environment
-- **Audio Workspace**
-  - Professional editing interface
-  - Waveform visualization
-  - Multi-track support
-  - Real-time effects preview
-  - Project saving and versioning
-  - Export in multiple formats (MP3, WAV, OGG)
-
-### File Management System
-- **Organization**
-  - Hierarchical folder structure
-  - Tags and metadata
-  - Smart folders
-  - Search functionality
-  - Batch operations
-  - Access control
-
-- **Storage Features**
-  - Cloud storage integration
-  - Automatic backup
-  - Version control
-  - File compression
-  - Format conversion
-  - Bulk operations
-
-### User Management
-- **Authentication & Authorization**
-  - Clerk integration
-  - Role-based access control
-  - Single Sign-On (SSO)
-  - Two-factor authentication
-  - Session management
-  - Activity logging
-
-- **User Roles**
-  - Admin
-  - Manager
-  - Editor
-  - Viewer
-  - Custom role definitions
-
-### Subscription System
-- **Plans**
-  - Free Tier
-    * 1000 characters/month
-    * Basic voices
-    * Standard quality
-    * 5 GB storage
-  
-  - Pro Tier ($29/month)
-    * 100,000 characters/month
-    * Premium voices
-    * High quality
-    * 50 GB storage
-    * Priority support
-  
-  - Enterprise Tier ($99/month)
-    * Unlimited characters
-    * All voices + custom voices
-    * Ultra-high quality
-    * 500 GB storage
-    * Dedicated support
-    * API access
-
-- **Billing Features**
-  - Stripe integration
-  - Usage-based billing
-  - Multiple payment methods
-  - Automatic invoicing
-  - Tax handling
-  - Custom plans
-
-### Analytics & Monitoring
-- **Usage Analytics**
-  - Real-time usage tracking
-  - Historical usage data
-  - Usage trend analysis
-  - Subscription tier limits monitoring
-  - Usage alerts and notifications
-  - Character count tracking
-  - API call monitoring
-  - Storage utilization
-  - User activity logs
-  - Performance metrics
-  - Cost analysis
-
-## Technical Architecture
-
-The application is built with a modern tech stack:
-
-- **Frontend**: React with TypeScript
-- **Styling**: Tailwind CSS + Styled Components
-- **State Management**: React Context + React Query
-- **Authentication**: Clerk Authentication
-- **Payments**: Stripe Integration with webhooks
-- **Backend**: Node.js with Express
-- **Cloud Services**: Google Cloud TTS, OpenRouter AI
-- **Deployment**: Netlify with Serverless Functions
-
-### Frontend Architecture
-- **Core Technologies**
-  - React 18 with TypeScript
-  - Vite for build tooling
-  - TailwindCSS + Styled Components
-  - React Query for data fetching
-  - Context API for state management
-  - React Router for navigation
-
-### Backend Architecture
-- **Core Technologies**
-  - Node.js with Express
-  - MongoDB for data storage
-  - Redis for caching
-  - Bull for job queues
-  - Socket.IO for real-time features
-
-- **API Design**
-  - RESTful architecture
-  - GraphQL support
-  - OpenAPI specification
-  - Rate limiting
-  - Caching strategy
-  - Error handling
-
-### Infrastructure
-- **Cloud Services**
-  - Google Cloud Platform
-    * Cloud Text-to-Speech
-    * Cloud Storage
-    * Cloud Functions
-    * Cloud Run
-  
-  - MongoDB Atlas
-    * Database clusters
-    * Backup service
-    * Monitoring
-  
-  - Redis Labs
-    * Caching layer
-    * Session storage
-    * Rate limiting
-
-- **DevOps**
-  - Docker containerization
-  - GitHub Actions CI/CD
-  - Terraform for infrastructure
-  - Kubernetes orchestration
-  - Monitoring with Datadog
-  - Logging with ELK Stack
-
-## Project Structure
-
-```plaintext
-maxaudio/
-├── src/                    # Frontend source code
-│   ├── components/         # React components
-│   │   ├── admin/         # Admin dashboard components
-│   │   ├── auth/          # Authentication components
-│   │   ├── common/        # Shared components
-│   │   ├── files/         # File management
-│   │   ├── settings/      # User settings
-│   │   ├── studio/        # Audio studio
-│   │   └── voice/         # Voice management
-│   ├── pages/             # Application pages
-│   ├── services/          # API services
-│   ├── contexts/          # React contexts
-│   ├── hooks/             # Custom hooks
-│   ├── styles/            # Global styles
-│   ├── types/             # TypeScript types
-│   └── utils/             # Utility functions
-├── server/                # Backend source code
-│   ├── config/            # Configuration files
-│   ├── middleware/        # Express middleware
-│   ├── models/            # Database models
-│   ├── routes/            # API routes
-│   ├── services/          # Business logic
-│   ├── utils/             # Utility functions
-│   └── validation/        # Request validation
-├── scripts/               # Utility scripts
-└── docs/                 # Documentation
-```
-
 ## Setup & Installation
 
 ### Prerequisites
-- Node.js v16+
-- MongoDB v5+
-- Redis v6+
-- Google Cloud account
-- Stripe account
-- Clerk account
+- Node.js (v18 or higher)
+- MongoDB
+- Redis (optional, for caching)
+- Stripe account for payments
 
-### Development Environment Setup
+### Environment Variables
+Create a `.env` file in the root directory with the following variables:
 
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=development
+MONGODB_URI=mongodb://localhost:27017/maxaudio
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRES_IN=24h
+JWT_REFRESH_SECRET=your_refresh_token_secret
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Client URLs
+CLIENT_URL=http://localhost:3000
+PRODUCTION_CLIENT_URL=https://your-production-url.com
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=your_stripe_secret_key
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+
+# Storage Configuration
+STORAGE_PROVIDER=local # or 's3', 'gcs'
+STORAGE_PATH=./uploads
+
+# Optional Features
+ENABLE_2FA=false
+ENABLE_CUSTOM_VOICES=true
+ENABLE_ANALYTICS=true
+ENABLE_PUSH_NOTIFICATIONS=false
+```
+
+### Installation Steps
 1. Clone the repository:
    ```bash
    git clone https://github.com/yourusername/maxaudio.git
    cd maxaudio
    ```
 
-2. Install Dependencies:
+2. Install dependencies:
    ```bash
-   # Install root dependencies
    npm install
-
-   # Install server dependencies
-   cd server && npm install
    ```
 
-3. Copy the environment example files:
+3. Set up the database:
    ```bash
-   # Copy environment files
-   cp .env.example .env
-   cd server && cp .env.example .env
+   npm run setup:db
    ```
 
-4. Configure environment variables (see Configuration section).
-
-5. Start MongoDB:
+4. Start the development server:
    ```bash
-   mongod --dbpath /path/to/data
-   ```
-
-6. Run database migrations:
-   ```bash
-   npm run migrate
-   ```
-
-7. Start Development Servers:
-   ```bash
-   # Start frontend (from root)
    npm run dev
-
-   # Start backend (from server directory)
-   cd server && npm run dev
    ```
 
-## Development Guide
+## Security
+
+### Authentication Flow
+1. User registers or logs in
+2. Server validates credentials and issues JWT
+3. Client stores token securely
+4. Token is included in subsequent requests
+5. Server validates token for each protected route
+
+### Security Features
+- JWT-based authentication
+- Secure password hashing with bcrypt
+- CORS protection
+- Rate limiting
+- XSS protection
+- CSRF protection
+- Input validation
+- Request sanitization
+
+### API Authentication
+All API requests to protected routes must include the JWT token in the Authorization header:
+
+```http
+Authorization: Bearer <your_jwt_token>
+```
+
+## API Documentation
+
+### Authentication Endpoints
+
+#### Register User
+```http
+POST /api/auth/register
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securepassword",
+  "username": "username"
+}
+```
+
+#### Login
+```http
+POST /api/auth/login
+Content-Type: application/json
+
+{
+  "email": "user@example.com",
+  "password": "securepassword"
+}
+```
+
+#### Refresh Token
+```http
+POST /api/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "your_refresh_token"
+}
+```
+
+#### Logout
+```http
+POST /api/auth/logout
+Authorization: Bearer <your_jwt_token>
+```
+
+## Error Handling
+
+### Authentication Errors
+- 401: Unauthorized - Invalid or expired token
+- 403: Forbidden - Insufficient permissions
+- 422: Validation Error - Invalid input data
+
+### Response Format
+```json
+{
+  "success": false,
+  "error": {
+    "code": "AUTH_ERROR",
+    "message": "Token has expired",
+    "details": {}
+  }
+}
+```
+
+## Contributing
+Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Acknowledgments
+
+- [Google Cloud TTS](https://cloud.google.com/text-to-speech) for voice synthesis
+- [Stripe](https://stripe.com) for payment processing
+- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) for database hosting
+- All contributors and maintainers
+
+## Support & Community
+
+### Documentation
+- [API Reference](docs/api.md)
+- [Development Guide](docs/development.md)
+- [Deployment Guide](docs/deployment.md)
+- [Security Policy](docs/security.md)
+
+### Community Resources
+- [GitHub Discussions](https://github.com/maxaudio/discussions)
+- [Discord Server](https://discord.gg/maxaudio)
+- [Stack Overflow Tag](https://stackoverflow.com/questions/tagged/maxaudio)
+
+### Support Channels
+- Technical Support: support@maxaudio.com
+- Security Issues: security@maxaudio.com
+- Feature Requests: feedback@maxaudio.com
+
+## Production Setup
+
+### Prerequisites
+- Node.js (v18 or higher)
+- MongoDB
+- Redis (optional, for caching)
+- Stripe account for payments
+
+### Environment Variables
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Server Configuration
+PORT=3000
+NODE_ENV=production
+MONGODB_URI=mongodb://localhost:27017/maxaudio
+
+# JWT Configuration
+JWT_SECRET=your_jwt_secret_key
+JWT_EXPIRES_IN=24h
+JWT_REFRESH_SECRET=your_refresh_token_secret
+JWT_REFRESH_EXPIRES_IN=7d
+
+# Client URLs
+CLIENT_URL=https://your-production-url.com
+PRODUCTION_CLIENT_URL=https://your-production-url.com
+
+# Stripe Configuration
+STRIPE_SECRET_KEY=your_stripe_secret_key
+STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
+
+# Storage Configuration
+STORAGE_PROVIDER=local # or 's3', 'gcs'
+STORAGE_PATH=./uploads
+
+# Optional Features
+ENABLE_2FA=false
+ENABLE_CUSTOM_VOICES=true
+ENABLE_ANALYTICS=true
+ENABLE_PUSH_NOTIFICATIONS=false
+```
+
+### Deployment Steps
+1. Set up a production-ready server
+2. Configure environment variables
+3. Deploy the application
+4. Set up monitoring and analytics tools
+
+## Monitoring & Analytics
+
+### System Monitoring
+- Server health checks
+- Resource utilization
+- Error tracking
+- Performance metrics
+- Security events
+- API latency
+
+### Usage Analytics
+- User activity tracking
+- Feature usage stats
+- Error reporting
+- Performance data
+- Business metrics
+- Cost analysis
+
+### Alerting
+- Error rate thresholds
+- Resource utilization
+- Security incidents
+- Business metrics
+- Custom alerts
+- Notification channels
+
+## Development & Testing Guide
 
 ### Local Development Testing
 
@@ -715,167 +706,3 @@ Errors:
 - 400: Invalid plan
 - 402: Payment required
 - 500: Upgrade failed
-```
-
-## Security
-
-### Authentication & Authorization
-- JWT-based authentication
-- Token refresh mechanism
-- Role-based access control
-- IP-based rate limiting
-- Session management
-- 2FA support (SMS/Email)
-
-### Data Protection
-- AES-256 encryption at rest
-- TLS 1.3 for data in transit
-- CORS configuration
-- XSS prevention
-- CSRF protection
-- SQL injection prevention
-
-### API Security
-- Request validation
-- Input sanitization
-- Rate limiting
-- Request size limits
-- Error handling
-- Audit logging
-
-## Monitoring & Analytics
-
-### System Monitoring
-- Server health checks
-- Resource utilization
-- Error tracking
-- Performance metrics
-- Security events
-- API latency
-
-### Usage Analytics
-- User activity tracking
-- Feature usage stats
-- Error reporting
-- Performance data
-- Business metrics
-- Cost analysis
-
-### Alerting
-- Error rate thresholds
-- Resource utilization
-- Security incidents
-- Business metrics
-- Custom alerts
-- Notification channels
-
-## Development & Testing Guide
-
-### Local Development Testing
-
-#### Quick Start
-```bash
-# Terminal 1 - Start the server
-cd server
-npm run dev
-
-# Terminal 2 - Start the client
-npm run dev
-```
-
-#### Mock Services Configuration
-For development and testing:
-```bash
-# .env configuration
-MOCK_VOICE_SERVICE=true
-USE_IN_MEMORY_CACHE=true
-MOCK_STORAGE=true
-```
-
-For testing with real services:
-```bash
-# .env configuration
-MOCK_VOICE_SERVICE=false
-
-# Feature Flags
-ENABLE_VOICE_CLONING=true
-ENABLE_CUSTOM_VOICES=true
-ENABLE_ANALYTICS=true
-ENABLE_PUSH_NOTIFICATIONS=false
-
-# Security
-DISABLE_RATE_LIMITING=false
-```
-
-### Launch Steps
-
-1. **Database Setup**
-   - Set up MongoDB Atlas cluster
-   - Configure network access
-   - Create database user
-   - Set up automated backups
-   - Test connection from development
-
-2. **Voice API Integration**
-   - Choose provider (ElevenLabs/Google/Amazon)
-   - Set up account and get credentials
-   - Test with small requests
-   - Configure rate limiting
-   - Set up usage monitoring
-
-3. **Email Configuration**
-   - Start with Mailtrap for testing
-   - Plan email service migration
-   - Set up email templates
-   - Configure SPF and DKIM
-   - Test email delivery
-
-4. **Security Setup**
-   - Configure SSL/TLS
-   - Set up firewall rules
-   - Enable rate limiting
-   - Configure CORS
-   - Set up monitoring
-   - Enable audit logging
-
-5. **Performance Optimization**
-   - Enable CDN
-   - Configure caching
-   - Set up load balancing
-   - Enable compression
-   - Optimize database queries
-   - Configure connection pooling
-
-## Support & Community
-
-### Documentation
-- [API Reference](docs/api.md)
-- [Development Guide](docs/development.md)
-- [Deployment Guide](docs/deployment.md)
-- [Security Policy](docs/security.md)
-
-### Community Resources
-- [GitHub Discussions](https://github.com/maxaudio/discussions)
-- [Discord Server](https://discord.gg/maxaudio)
-- [Stack Overflow Tag](https://stackoverflow.com/questions/tagged/maxaudio)
-
-### Support Channels
-- Technical Support: support@maxaudio.com
-- Security Issues: security@maxaudio.com
-- Feature Requests: feedback@maxaudio.com
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- [Google Cloud TTS](https://cloud.google.com/text-to-speech) for voice synthesis
-- [Clerk](https://clerk.dev) for authentication
-- [Stripe](https://stripe.com) for payment processing
-- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) for database hosting
-- All contributors and maintainers
-
----
-
-© 2024 MaxAudio. All rights reserved.

@@ -1,17 +1,18 @@
 import { useEffect } from 'react';
 import { Navigate } from 'react-router-dom';
 import { LoginForm } from '../components/auth/LoginForm';
-import { authService } from '../services/auth.service';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Home() {
-  const isAuthenticated = authService.isAuthenticated();
+  const { isAuthenticated, isLoading } = useAuth();
 
-  useEffect(() => {
-    // Clear any old auth data when visiting login page
-    if (!isAuthenticated) {
-      authService.logout();
-    }
-  }, [isAuthenticated]);
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen" role="status">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/studio" />;
