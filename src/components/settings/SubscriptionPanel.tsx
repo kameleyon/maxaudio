@@ -10,25 +10,28 @@ export function SubscriptionPanel() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [selectedTier, setSelectedTier] = useState<SubscriptionTier | null>(null)
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
 
   // Get current tier based on user's role
   const currentTier = user?.role === 'admin' 
     ? subscriptionTiers.find(tier => tier.id === 'premium')
     : subscriptionTiers.find(tier => tier.id === 'free');
 
-  const formatPrice = (price: number) => {
+  const handleAddonToggle = (addon: string) => {
+    setSelectedAddons(prev => 
+      prev.includes(addon) 
+        ? prev.filter(a => a !== addon)
+        : [...prev, addon]
+    )
+  }
+
+  const getPrice = (tier: SubscriptionTier) => {
+    const price = billingCycle === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice;
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2
-    }).format(price)
-  }
-
-  const calculateYearlyDiscount = (monthlyPrice: number, yearlyPrice: number) => {
-    const monthlyTotal = monthlyPrice * 12
-    const savings = monthlyTotal - yearlyPrice
-    const percentage = Math.round((savings / monthlyTotal) * 100)
-    return { savings, percentage }
+    }).format(price);
   }
 
   const handleUpgradeClick = (tier: SubscriptionTier) => {
@@ -85,242 +88,135 @@ export function SubscriptionPanel() {
       </div>
 
       {/* Subscription Plans */}
-        <div className="space-y-6 mb-6">
-          {/* Free Trial */}
-          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
+      <div className="space-y-6 mb-6">
+        {subscriptionTiers.map((tier) => (
+          <div key={tier.id} className="bg-white/5 rounded-lg p-3 relative border border-white/10">
+            {tier.id === 'professional' && (
+              <div className="absolute -top-2 -right-2">
+                <button
+                  type="button"
+                  className="px-3 py-1 bg-[#63248d] text-white text-xs rounded-full"
+                >
+                  MOST POPULAR!
+                </button>
+              </div>
+            )}
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div className="flex-1">
                 <div className="grid md:grid-cols-3 gap-4">
                   <ul className="space-y-2 text-xl text-white/80">
                     <li>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
-                          <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
+                        <div className={`w-5 h-5 rounded-full ${tier.id === 'free' ? 'bg-green-400' : 'bg-[#63248d]'} flex items-center justify-center`}>
+                          {tier.id === 'free' ? (
+                            <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          ) : (
+                            <Crown className="w-3 h-3 text-white" />
+                          )}
                         </div>
-                        <h3 className="text-md font-semibold text-white">Free Trial</h3>
+                        <h3 className="text-md font-semibold text-white">{tier.name}</h3>
                       </div>
                     </li>
                     <li>
-                      <div className="text-3xl font-bold text-white mb-4">$0<span className="text-lg font-normal text-white/60">/month</span></div>
+                      <div className="text-3xl font-bold text-white mb-4">
+                        {getPrice(tier)}
+                        <span className="text-lg font-normal text-white/60">/{billingCycle === 'monthly' ? 'month' : 'year'}</span>
+                      </div>
                     </li>
                     <li>
-                      <button
-                        type="button"
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        disabled
-                      >
-                        Current Plan
-                      </button>
+                      {tier.id === currentTier.id ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled
+                        >
+                          Current Plan
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleUpgradeClick(tier)}
+                          className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
+                        >
+                          {tier.monthlyPrice > currentTier.monthlyPrice ? 'Upgrade' : 'Switch'} to {tier.name}
+                        </button>
+                      )}
                     </li>
                   </ul>
                   <ul className="space-y-2 text-sm text-white/80">
-                    <li>• 3 days full Professional access</li>
-                    <li>• 3 free generations (3 min each)</li>
-                    <li>• 200,000 characters/month after trial</li>
-                    <li>• Standard voices only</li>
-                    <li>• API Rate: 5 requests/minute</li>
+                    <li>• {tier.limits.charactersPerMonth.toLocaleString()} chars/month</li>
+                    <li>• {tier.limits.voiceClones} voice clone{tier.limits.voiceClones !== 1 ? 's' : ''}</li>
+                    <li>• {tier.limits.requestsPerMinute} requests/minute</li>
+                    {tier.features.slice(0, 2).map((feature, index) => (
+                      <li key={index}>• {feature}</li>
+                    ))}
                   </ul>
                   <ul className="space-y-2 text-sm text-white/80">
-                    <li>• Standard support</li>
-                    <li>• Voice Cloning: Not available</li>
-                    <li>• Token Purchase: $9.99/500K chars</li>
-                    <li>• Basic voice collection access</li>
-                    <li>• No commercial usage rights</li>
+                    {tier.features.slice(2).map((feature, index) => (
+                      <li key={index}>• {feature}</li>
+                    ))}
                   </ul>
                 </div>
               </div>
             </div>
           </div>
+        ))}
+      </div>
 
-          {/* Professional */}
-          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
-            <div className="absolute -top-2 -right-2">
-              <button
-                type="button"
-                className="inline-flex items-center justify-center px-3 py-1 bg-[#63248d] text-white text-xs rounded-full"
-              >
-                MOST POPULAR!
-              </button>
-            </div>
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="grid md:grid-cols-3 gap-4">
-                  <ul className="space-y-2 text-xl text-white/80">
-                    <li>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-[#63248d] flex items-center justify-center">
-                          <Crown className="w-3 h-3 text-white" />
-                        </div>
-                        <h3 className="text-md font-semibold text-white">Professional</h3>
-                      </div>
-                    </li>
-                    <li>
-                      <div className="text-3xl font-bold text-white mb-4">$39.99<span className="text-lg font-normal text-white/60">/month</span></div>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => handleUpgradeClick({ id: 'professional' } as SubscriptionTier)} 
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
-                      >
-                        Upgrade Now
-                      </button>
-                    </li>
-                  </ul>
-                  <ul className="space-y-2 text-sm text-white/80">
-                    <li>• WaveNet & Neural2 voices</li>
-                    <li>• 3 custom voice clones</li>
-                    <li>• 1M characters/month</li>
-                    <li>• API Rate: 15 requests/minute</li>
-                    <li>• 5 simultaneous generations</li>
-                  </ul>
-                  <ul className="space-y-2 text-sm text-white/80">
-                    <li>• Standard support</li>
-                    <li>• Token Purchase: $4.99/500K chars</li>
-                    <li>• Additional clones: $19.99 each</li>
-                    <li>• Basic Analytics</li>
-                    <li>• Limited commercial usage</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+      {/* Add-ons Section */}
+      <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-6">
+        <h3 className="text-md font-semibold text-white mb-4">Add-On Options</h3>
+        <div className="grid md:grid-cols-3 gap-3">
+          <div>
+            <h4 className="font-semibold text-white mb-2">Additional Tokens</h4>
+            <ul className="space-y-2 text-sm text-white/80">
+              {currentTier.addons.tokens.available ? (
+                <li className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-[#63248d] rounded border-white/20 bg-white/5 focus:ring-[#63248d]"
+                    checked={selectedAddons.includes('tokens')}
+                    onChange={() => handleAddonToggle('tokens')}
+                  />
+                  <span>
+                    ${currentTier.addons.tokens.price}/{(currentTier.addons.tokens.amount / 1000).toFixed(0)}K chars
+                  </span>
+                </li>
+              ) : (
+                <li className="text-white/40">Not available in Free tier</li>
+              )}
+            </ul>
           </div>
-
-          {/* Premium */}
-          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="grid md:grid-cols-3 gap-4">
-                  <ul className="space-y-2 text-xl text-white/80">
-                    <li>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-[#63248d] flex items-center justify-center">
-                          <Crown className="w-3 h-3 text-white" />
-                        </div>
-                        <h3 className="text-md font-semibold text-white">Premium</h3>
-                      </div>
-                    </li>
-                    <li>
-                      <div className="text-3xl font-bold text-white mb-4">$79.99<span className="text-lg font-normal text-white/60">/month</span></div>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => handleUpgradeClick({ id: 'premium' } as SubscriptionTier)}
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
-                      >
-                        Upgrade Now
-                      </button>
-                    </li>
-                  </ul>
-                  <ul className="space-y-2 text-sm text-white/80">
-                    <li>• All voice collections</li>
-                    <li>• 5 custom voice clones</li>
-                    <li>• 2M characters/month</li>
-                    <li>• API Rate: 30 requests/minute</li>
-                    <li>• 10 simultaneous generations</li>
-                  </ul>
-                  <ul className="space-y-2 text-sm text-white/80">
-                    <li>• Priority 24/7 support</li>
-                    <li>• Token Purchase: $4.99/500K chars</li>
-                    <li>• Additional clones: $19.99 each</li>
-                    <li>• Advanced Analytics</li>
-                    <li>• Full commercial usage rights</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+          <div>
+            <h4 className="font-semibold text-white mb-2">Extra Voice Clones</h4>
+            <ul className="space-y-2 text-sm text-white/80">
+              {currentTier.addons.voiceClones.available ? (
+                <li className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-[#63248d] rounded border-white/20 bg-white/5 focus:ring-[#63248d]"
+                    checked={selectedAddons.includes('voiceClones')}
+                    onChange={() => handleAddonToggle('voiceClones')}
+                  />
+                  <span>
+                    ${currentTier.addons.voiceClones.price} per clone (up to {currentTier.addons.voiceClones.maxAdditional} more)
+                  </span>
+                </li>
+              ) : (
+                <li className="text-white/40">Not available in {currentTier.name}</li>
+              )}
+            </ul>
           </div>
-
-          {/* Enterprise */}
-          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="grid md:grid-cols-3 gap-4">
-                  <ul className="space-y-2 text-xl text-white/80">
-                    <li>
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-[#63248d] flex items-center justify-center">
-                          <Crown className="w-3 h-3 text-white" />
-                        </div>
-                        <h3 className="text-md font-semibold text-white">Enterprise</h3>
-                      </div>
-                    </li>
-                    <li>
-                      <div className="text-3xl font-bold text-white mb-4">$149.99<span className="text-lg font-normal text-white/60">/month</span></div>
-                    </li>
-                    <li>
-                      <button
-                        type="button"
-                        onClick={() => handleUpgradeClick({ id: 'enterprise' } as SubscriptionTier)}
-                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
-                      >
-                        Upgrade Now
-                      </button>
-                    </li>
-                  </ul>
-                  <ul className="space-y-2 text-sm text-white/80">
-                    <li>• All voices + exclusive access</li>
-                    <li>• 10 custom voice clones</li>
-                    <li>• 5M characters/month</li>
-                    <li>• API Rate: 50 requests/minute</li>
-                    <li>• 20 simultaneous generations</li>
-                  </ul>
-                  <ul className="space-y-2 text-sm text-white/80">
-                    <li>• Dedicated account manager</li>
-                    <li>• Token Purchase: $4.99/1M chars</li>
-                    <li>• Unlimited additional clones</li>
-                    <li>• Custom Analytics Dashboard</li>
-                    <li>• Enterprise commercial rights</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
+          <div>
+            <h4 className="font-semibold text-white mb-2">Processing Priority</h4>
+            <ul className="space-y-2 text-sm text-white/80">
+              <li>Current: {currentTier.addons.priority}</li>
+            </ul>
           </div>
         </div>
-
-        {/* Add-ons Section */}
-        <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-6">
-          <h3 className="text-md font-semibold text-white mb-4">Add-On Options</h3>
-          <div className="grid md:grid-cols-3 gap-3">
-            <div>
-            
-              <ul className="space-y-2 text-sm text-white/80">
-                <li><input type="checkbox" id="addonfreetier" className="mr-2"/> $9.99/500K chars: Free Tier</li>
-                <li><input type="checkbox" id="addonproier" className="mr-2"/> $4.99/500K chars: Pro & Premium</li>
-                <li><input type="checkbox" id="addonentertier" className="mr-2"/> $4.99/1M chars: Enterprise</li>
-                <li><input type="checkbox" id="addonvoice" className="mr-2"/> $19.99 per additional clone</li>
-                <li><button onClick={() => handleUpgradeClick({ id: 'addon' } as SubscriptionTier)}
-                         className="px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm">
-                        Get More
-                      </button></li>
-              </ul>
-              
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-2">Extra Voice Clones</h4>
-              <ul className="space-y-2 text-sm text-white/80">
-              <li>• FREE: No Clone</li>
-                <li>• Professional: Up to 10 total</li>
-                <li>• Premium: Up to 20 total</li>
-                <li>• Enterprise: Unlimited</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-2">Processing Priority</h4>
-              <ul className="space-y-2 text-sm text-white/80">
-                <li>• Enterprise: Highest priority</li>
-                <li>• Premium: High priority</li>
-                <li>• Professional: Standard priority</li>
-                <li>• Free: Best effort</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-  
+      </div>
 
       {/* Upgrade Modal */}
       <UpgradeModal
@@ -334,5 +230,5 @@ export function SubscriptionPanel() {
         billingCycle={billingCycle}
       />
     </div>
-  )
+  );
 }
