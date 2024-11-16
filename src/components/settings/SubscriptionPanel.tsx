@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Crown, Check, Calendar, CreditCard } from 'lucide-react'
+import { Crown, Check, Calendar, CreditCard, Lock } from 'lucide-react'
 import { subscriptionTiers, type SubscriptionTier } from '../../config/subscription-tiers'
 import { useAuth } from '../../contexts/AuthContext'
 import { UpgradeModal } from './UpgradeModal'
@@ -44,6 +44,9 @@ export function SubscriptionPanel() {
   if (!user || !currentTier) {
     return null;
   }
+
+  // Get the highest tier for showing all possible add-ons
+  const enterpriseTier = subscriptionTiers.find(tier => tier.id === 'enterprise')!;
 
   return (
     <div className="space-y-8">
@@ -171,48 +174,84 @@ export function SubscriptionPanel() {
         <div className="grid md:grid-cols-3 gap-3">
           <div>
             <h4 className="font-semibold text-white mb-2">Additional Tokens</h4>
-            <ul className="space-y-2 text-sm text-white/80">
-              {currentTier.addons.tokens.available ? (
-                <li className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="form-checkbox h-4 w-4 text-[#63248d] rounded border-white/20 bg-white/5 focus:ring-[#63248d]"
-                    checked={selectedAddons.includes('tokens')}
-                    onChange={() => handleAddonToggle('tokens')}
-                  />
-                  <span>
-                    ${currentTier.addons.tokens.price}/{(currentTier.addons.tokens.amount / 1000).toFixed(0)}K chars
-                  </span>
+            <ul className="space-y-2 text-sm">
+              {subscriptionTiers.map((tier) => (
+                <li 
+                  key={tier.id}
+                  className={`flex items-center gap-2 ${tier.id === currentTier.id ? 'text-white/80' : 'text-white/40'}`}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-4 w-4 text-[#63248d] rounded border-white/20 bg-white/5 focus:ring-[#63248d]"
+                      checked={selectedAddons.includes(`tokens-${tier.id}`)}
+                      onChange={() => handleAddonToggle(`tokens-${tier.id}`)}
+                      disabled={tier.id !== currentTier.id}
+                    />
+                    <span className="flex items-center gap-1">
+                      ${tier.addons.tokens.price}/{(tier.addons.tokens.amount / 1000).toFixed(0)}K chars
+                      {tier.id !== currentTier.id && (
+                        <Lock className="w-3 h-3 text-white/40" />
+                      )}
+                    </span>
+                    <span className="text-xs">({tier.name})</span>
+                  </div>
                 </li>
-              ) : (
-                <li className="text-white/40">Not available in Free tier</li>
-              )}
+              ))}
             </ul>
           </div>
           <div>
             <h4 className="font-semibold text-white mb-2">Extra Voice Clones</h4>
-            <ul className="space-y-2 text-sm text-white/80">
-              {currentTier.addons.voiceClones.available ? (
-                <li className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="form-checkbox h-4 w-4 text-[#63248d] rounded border-white/20 bg-white/5 focus:ring-[#63248d]"
-                    checked={selectedAddons.includes('voiceClones')}
-                    onChange={() => handleAddonToggle('voiceClones')}
-                  />
-                  <span>
-                    ${currentTier.addons.voiceClones.price} per clone (up to {currentTier.addons.voiceClones.maxAdditional} more)
-                  </span>
+            <ul className="space-y-2 text-sm">
+              {subscriptionTiers.filter(tier => tier.addons.voiceClones.available).map((tier) => (
+                <li 
+                  key={tier.id}
+                  className={`flex items-center gap-2 ${tier.id === currentTier.id ? 'text-white/80' : 'text-white/40'}`}
+                >
+                  <div className="flex items-center gap-2 w-full">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-4 w-4 text-[#63248d] rounded border-white/20 bg-white/5 focus:ring-[#63248d]"
+                      checked={selectedAddons.includes(`clones-${tier.id}`)}
+                      onChange={() => handleAddonToggle(`clones-${tier.id}`)}
+                      disabled={tier.id !== currentTier.id}
+                    />
+                    <span className="flex items-center gap-1">
+                      ${tier.addons.voiceClones.price} per clone
+                      {tier.id !== currentTier.id && (
+                        <Lock className="w-3 h-3 text-white/40" />
+                      )}
+                    </span>
+                    <span className="text-xs">
+                      (up to {tier.addons.voiceClones.maxAdditional} more)
+                    </span>
+                  </div>
                 </li>
-              ) : (
-                <li className="text-white/40">Not available in {currentTier.name}</li>
+              ))}
+              {!currentTier.addons.voiceClones.available && (
+                <li className="text-white/40 flex items-center gap-1">
+                  <Lock className="w-3 h-3" />
+                  Not available in {currentTier.name}
+                </li>
               )}
             </ul>
           </div>
           <div>
             <h4 className="font-semibold text-white mb-2">Processing Priority</h4>
-            <ul className="space-y-2 text-sm text-white/80">
-              <li>Current: {currentTier.addons.priority}</li>
+            <ul className="space-y-2 text-sm">
+              {subscriptionTiers.map((tier) => (
+                <li 
+                  key={tier.id}
+                  className={tier.id === currentTier.id ? 'text-white/80' : 'text-white/40'}
+                >
+                  • {tier.name}: {tier.addons.priority}
+                  {tier.id === currentTier.id && (
+                    <span className="ml-2 text-xs bg-[#63248d]/20 text-[#63248d] px-2 py-0.5 rounded-full">
+                      Current
+                    </span>
+                  )}
+                </li>
+              ))}
             </ul>
           </div>
         </div>
