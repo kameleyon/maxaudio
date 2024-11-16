@@ -83,96 +83,220 @@ export function SubscriptionPanel() {
       </div>
 
       {/* Subscription Plans */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {subscriptionTiers.map((tier) => {
-          const price = billingCycle === 'monthly' ? tier.monthlyPrice : tier.yearlyPrice / 12
-          const { savings, percentage } = calculateYearlyDiscount(tier.monthlyPrice, tier.yearlyPrice)
-          const isCurrentTier = tier.id === currentTier.id
-          
-          return (
-            <div
-              key={tier.id}
-              className={`rounded-lg border ${
-                isCurrentTier
-                  ? 'border-[#63248d] bg-[#63248d]/10'
-                  : 'border-white/10 bg-white/5'
-              } p-6`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">{tier.name}</h3>
-                <Crown className={`w-5 h-5 ${isCurrentTier ? 'text-[#63248d]' : 'text-white/40'}`} />
-              </div>
-
-              <div className="mb-6">
-                <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-bold">{formatPrice(price)}</span>
-                  <span className="text-white/60">/month</span>
-                </div>
-                {billingCycle === 'yearly' && (
-                  <div className="mt-2 text-sm">
-                    <span className="text-green-400">{formatPrice(savings)} savings yearly</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4 mb-6">
-                <div className="text-sm text-white/60">{tier.description}</div>
-                <ul className="space-y-3">
-                  {tier.features.map((feature) => (
-                    <li key={feature.name} className="flex items-start gap-2 text-sm">
-                      <Check className="w-4 h-4 text-[#63248d] mt-0.5 flex-shrink-0" />
-                      <span className={feature.included ? '' : 'text-white/40 line-through'}>
-                        {feature.description}
-                      </span>
+        <div className="space-y-6 mb-6">
+          {/* Free Trial */}
+          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <ul className="space-y-2 text-xl text-white/80">
+                    <li>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-full bg-green-400 flex items-center justify-center">
+                          <svg className="w-3 h-3 text-black" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                        <h3 className="text-md font-semibold text-white">Free Trial</h3>
+                      </div>
                     </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="space-y-4">
-                <button
-                  onClick={() => handleUpgradeClick(tier)}
-                  className={`w-full py-2 px-4 rounded-lg transition-colors ${
-                    isCurrentTier
-                      ? 'bg-white/10 text-white cursor-default'
-                      : 'bg-[#63248d] hover:bg-[#63248d]/80'
-                  }`}
-                >
-                  {isCurrentTier ? 'Current Plan' : 'Change Plan'}
-                </button>
-                
-                {tier.id !== 'free' && (
-                  <div className="flex items-center justify-center gap-2 text-sm text-white/60">
-                    <CreditCard className="w-4 h-4" />
-                    <span>Secure payment</span>
-                  </div>
-                )}
-              </div>
-
-              {tier.salePrice && (
-                <div className="mt-4 p-2 bg-green-500/10 border border-green-500/20 rounded-lg text-center">
-                  <span className="text-green-400 text-sm">
-                    Limited time offer: Save up to {percentage}%
-                  </span>
+                    <li>
+                      <div className="text-3xl font-bold text-white mb-4">$0<span className="text-lg font-normal text-white/60">/month</span></div>
+                    </li>
+                    <li>
+                      <button className={`px-4 py-2 rounded-lg bg-white/5 text-white/60 disabled`}>
+                        Current Plan
+                      </button>
+                    </li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• 3 days full Professional access</li>
+                    <li>• 3 free generations (3 min each)</li>
+                    <li>• 200,000 characters/month after trial</li>
+                    <li>• Standard voices only</li>
+                    <li>• API Rate: 5 requests/minute</li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• Standard support</li>
+                    <li>• Voice Cloning: Not available</li>
+                    <li>• Token Purchase: $9.99/500K chars</li>
+                    <li>• Basic voice collection access</li>
+                    <li>• No commercial usage rights</li>
+                  </ul>
                 </div>
-              )}
+              </div>
             </div>
-          )
-        })}
-      </div>
+          </div>
 
-      {/* Special Offers */}
-      <div className="p-4 bg-white/5 rounded-lg border border-white/10">
-        <div className="flex items-center gap-2 mb-2">
-          <Calendar className="w-4 h-4 text-[#63248d]" />
-          <h3 className="font-semibold">Special Offers</h3>
+          {/* Professional */}
+          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
+            <div className="absolute -top-2 -right-2">
+              <button className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full">
+                MOST POPULAR!
+              </button>
+            </div>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <ul className="space-y-2 text-xl text-white/80">
+                    <li>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
+                          <Crown className="w-3 h-3 text-white" />
+                        </div>
+                        <h3 className="text-md font-semibold text-white">Professional</h3>
+                      </div>
+                    </li>
+                    <li>
+                      <div className="text-3xl font-bold text-white mb-4">$39.99<span className="text-lg font-normal text-white/60">/month</span></div>
+                    </li>
+                    <li>
+                      <button onClick={() => handleUpgradeClick({ id: 'professional' } as SubscriptionTier)} 
+                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors">
+                        Upgrade Now
+                      </button>
+                    </li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• WaveNet & Neural2 voices</li>
+                    <li>• 3 custom voice clones</li>
+                    <li>• 1M characters/month</li>
+                    <li>• API Rate: 15 requests/minute</li>
+                    <li>• 5 simultaneous generations</li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• Standard support</li>
+                    <li>• Token Purchase: $4.99/500K chars</li>
+                    <li>• Additional clones: $19.99 each</li>
+                    <li>• Basic Analytics</li>
+                    <li>• Limited commercial usage</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Premium */}
+          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <ul className="space-y-2 text-xl text-white/80">
+                    <li>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
+                          <Crown className="w-3 h-3 text-white" />
+                        </div>
+                        <h3 className="text-md font-semibold text-white">Premium</h3>
+                      </div>
+                    </li>
+                    <li>
+                      <div className="text-3xl font-bold text-white mb-4">$79.99<span className="text-lg font-normal text-white/60">/month</span></div>
+                    </li>
+                    <li>
+                      <button onClick={() => handleUpgradeClick({ id: 'premium' } as SubscriptionTier)}
+                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors">
+                        Upgrade Now
+                      </button>
+                    </li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• All voice collections</li>
+                    <li>• 5 custom voice clones</li>
+                    <li>• 2M characters/month</li>
+                    <li>• API Rate: 30 requests/minute</li>
+                    <li>• 10 simultaneous generations</li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• Priority 24/7 support</li>
+                    <li>• Token Purchase: $4.99/500K chars</li>
+                    <li>• Additional clones: $19.99 each</li>
+                    <li>• Advanced Analytics</li>
+                    <li>• Full commercial usage rights</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Enterprise */}
+          <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="grid md:grid-cols-3 gap-4">
+                  <ul className="space-y-2 text-xl text-white/80">
+                    <li>
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
+                          <Crown className="w-3 h-3 text-white" />
+                        </div>
+                        <h3 className="text-md font-semibold text-white">Enterprise</h3>
+                      </div>
+                    </li>
+                    <li>
+                      <div className="text-3xl font-bold text-white mb-4">$149.99<span className="text-lg font-normal text-white/60">/month</span></div>
+                    </li>
+                    <li>
+                      <button onClick={() => handleUpgradeClick({ id: 'enterprise' } as SubscriptionTier)}
+                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors">
+                        Upgrade Now
+                      </button>
+                    </li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• All voices + exclusive access</li>
+                    <li>• 10 custom voice clones</li>
+                    <li>• 5M characters/month</li>
+                    <li>• API Rate: 50 requests/minute</li>
+                    <li>• 20 simultaneous generations</li>
+                  </ul>
+                  <ul className="space-y-2 text-sm text-white/80">
+                    <li>• Dedicated account manager</li>
+                    <li>• Token Purchase: $4.99/1M chars</li>
+                    <li>• Unlimited additional clones</li>
+                    <li>• Custom Analytics Dashboard</li>
+                    <li>• Enterprise commercial rights</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
-        <div className="text-sm text-white/60">
-          <p>• New users get 3 days of Premium features with 3 free generations</p>
-          <p>• Get 20% off your first month with a referral code</p>
-          <p>• Check back for seasonal discounts up to 30% off</p>
+
+        {/* Add-ons Section */}
+        <div className="bg-white/5 rounded-lg p-3 border border-white/10 mb-6">
+          <h3 className="text-md font-semibold text-white mb-4">Add-On Options</h3>
+          <div className="grid md:grid-cols-3 gap-3">
+            <div>
+              <h4 className="font-semibold text-white mb-2">Additional Tokens</h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>• Free Tier: $9.99/500K chars</li>
+                <li>• Professional & Premium: $4.99/500K chars</li>
+                <li>• Enterprise: $4.99/1M chars</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-2">Extra Voice Clones</h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>• $19.99 per additional clone</li>
+                <li>• Professional: Up to 10 total</li>
+                <li>• Premium: Up to 20 total</li>
+                <li>• Enterprise: Unlimited</li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-white mb-2">Processing Priority</h4>
+              <ul className="space-y-2 text-sm text-white/80">
+                <li>• Enterprise: Highest priority</li>
+                <li>• Premium: High priority</li>
+                <li>• Professional: Standard priority</li>
+                <li>• Free: Best effort</li>
+              </ul>
+            </div>
+          </div>
         </div>
-      </div>
+
+  
 
       {/* Upgrade Modal */}
       <UpgradeModal
