@@ -101,16 +101,16 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
 
   const selectClasses = `
     w-full px-4 py-2 
-    bg-[#1a1a2e] 
-    border border-[#63248d]/30 
+    bg-[#ffffff20] 
+    border border-[#ffffff]/30 
     rounded-lg 
     text-white/90
     focus:outline-none 
-    focus:border-[#63248d] 
+    focus:border-[#ffffff 
     focus:ring-1 
-    focus:ring-[#63248d]
+    focus:ring-[#ffffff]
     appearance-none
-    hover:border-[#63248d]/60
+    hover:border-[#ffffff]/20
     transition-colors
   `;
 
@@ -123,7 +123,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const optgroupClasses = `
     bg-[#1a1a2e]
     text-[#63248d]
-    font-semibold
+    
   `;
 
   // Group voices by type for better organization
@@ -195,7 +195,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
             onChange={(e) => handleSettingChange('voice', e.target.value)}
             className={`${selectClasses} [&>optgroup]:${optgroupClasses}`}
             style={{
-              background: '#1a1a2e',
+              background: '#ffffff20',
               color: 'rgba(255, 255, 255, 0.9)'
             }}
           >
