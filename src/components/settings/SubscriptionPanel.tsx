@@ -58,6 +58,7 @@ export function SubscriptionPanel() {
       {/* Billing Cycle Toggle */}
       <div className="flex justify-center gap-4 p-4">
         <button
+          type="button"
           onClick={() => setBillingCycle('monthly')}
           className={`px-4 py-2 rounded-lg transition-colors ${
             billingCycle === 'monthly'
@@ -68,6 +69,7 @@ export function SubscriptionPanel() {
           Monthly
         </button>
         <button
+          type="button"
           onClick={() => setBillingCycle('yearly')}
           className={`px-4 py-2 rounded-lg transition-colors ${
             billingCycle === 'yearly'
@@ -104,7 +106,11 @@ export function SubscriptionPanel() {
                       <div className="text-3xl font-bold text-white mb-4">$0<span className="text-lg font-normal text-white/60">/month</span></div>
                     </li>
                     <li>
-                      <button className={`px-4 py-2 rounded-lg bg-white/5 text-white/60 disabled`}>
+                      <button
+                        type="button"
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled
+                      >
                         Current Plan
                       </button>
                     </li>
@@ -131,7 +137,10 @@ export function SubscriptionPanel() {
           {/* Professional */}
           <div className="bg-white/5 rounded-lg p-3 relative border border-white/10">
             <div className="absolute -top-2 -right-2">
-              <button className="px-3 py-1 bg-purple-600 text-white text-xs rounded-full">
+              <button
+                type="button"
+                className="inline-flex items-center justify-center px-3 py-1 bg-[#63248d] text-white text-xs rounded-full"
+              >
                 MOST POPULAR!
               </button>
             </div>
@@ -141,7 +150,7 @@ export function SubscriptionPanel() {
                   <ul className="space-y-2 text-xl text-white/80">
                     <li>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-full bg-[#63248d] flex items-center justify-center">
                           <Crown className="w-3 h-3 text-white" />
                         </div>
                         <h3 className="text-md font-semibold text-white">Professional</h3>
@@ -151,8 +160,11 @@ export function SubscriptionPanel() {
                       <div className="text-3xl font-bold text-white mb-4">$39.99<span className="text-lg font-normal text-white/60">/month</span></div>
                     </li>
                     <li>
-                      <button onClick={() => handleUpgradeClick({ id: 'professional' } as SubscriptionTier)} 
-                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => handleUpgradeClick({ id: 'professional' } as SubscriptionTier)} 
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
+                      >
                         Upgrade Now
                       </button>
                     </li>
@@ -184,7 +196,7 @@ export function SubscriptionPanel() {
                   <ul className="space-y-2 text-xl text-white/80">
                     <li>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-full bg-[#63248d] flex items-center justify-center">
                           <Crown className="w-3 h-3 text-white" />
                         </div>
                         <h3 className="text-md font-semibold text-white">Premium</h3>
@@ -194,8 +206,11 @@ export function SubscriptionPanel() {
                       <div className="text-3xl font-bold text-white mb-4">$79.99<span className="text-lg font-normal text-white/60">/month</span></div>
                     </li>
                     <li>
-                      <button onClick={() => handleUpgradeClick({ id: 'premium' } as SubscriptionTier)}
-                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => handleUpgradeClick({ id: 'premium' } as SubscriptionTier)}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
+                      >
                         Upgrade Now
                       </button>
                     </li>
@@ -227,7 +242,7 @@ export function SubscriptionPanel() {
                   <ul className="space-y-2 text-xl text-white/80">
                     <li>
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="w-5 h-5 rounded-full bg-purple-600 flex items-center justify-center">
+                        <div className="w-5 h-5 rounded-full bg-[#63248d] flex items-center justify-center">
                           <Crown className="w-3 h-3 text-white" />
                         </div>
                         <h3 className="text-md font-semibold text-white">Enterprise</h3>
@@ -237,8 +252,11 @@ export function SubscriptionPanel() {
                       <div className="text-3xl font-bold text-white mb-4">$149.99<span className="text-lg font-normal text-white/60">/month</span></div>
                     </li>
                     <li>
-                      <button onClick={() => handleUpgradeClick({ id: 'enterprise' } as SubscriptionTier)}
-                        className="px-4 py-2 rounded-lg bg-purple-600 text-white hover:bg-purple-700 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => handleUpgradeClick({ id: 'enterprise' } as SubscriptionTier)}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm hover:bg-[#7b2daf] transition-colors"
+                      >
                         Upgrade Now
                       </button>
                     </li>
@@ -268,17 +286,23 @@ export function SubscriptionPanel() {
           <h3 className="text-md font-semibold text-white mb-4">Add-On Options</h3>
           <div className="grid md:grid-cols-3 gap-3">
             <div>
-              <h4 className="font-semibold text-white mb-2">Additional Tokens</h4>
+            
               <ul className="space-y-2 text-sm text-white/80">
-                <li>• Free Tier: $9.99/500K chars</li>
-                <li>• Professional & Premium: $4.99/500K chars</li>
-                <li>• Enterprise: $4.99/1M chars</li>
+                <li><input type="checkbox" id="addonfreetier" className="mr-2"/> $9.99/500K chars: Free Tier</li>
+                <li><input type="checkbox" id="addonproier" className="mr-2"/> $4.99/500K chars: Pro & Premium</li>
+                <li><input type="checkbox" id="addonentertier" className="mr-2"/> $4.99/1M chars: Enterprise</li>
+                <li><input type="checkbox" id="addonvoice" className="mr-2"/> $19.99 per additional clone</li>
+                <li><button onClick={() => handleUpgradeClick({ id: 'addon' } as SubscriptionTier)}
+                         className="px-4 py-2 rounded-lg bg-[#63248d] text-white text-sm">
+                        Get More
+                      </button></li>
               </ul>
+              
             </div>
             <div>
               <h4 className="font-semibold text-white mb-2">Extra Voice Clones</h4>
               <ul className="space-y-2 text-sm text-white/80">
-                <li>• $19.99 per additional clone</li>
+              <li>• FREE: No Clone</li>
                 <li>• Professional: Up to 10 total</li>
                 <li>• Premium: Up to 20 total</li>
                 <li>• Enterprise: Unlimited</li>
