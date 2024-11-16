@@ -3,6 +3,8 @@ export interface SubscriptionTier {
   name: string;
   monthlyPrice: number;
   yearlyPrice: number;
+  stripePriceId: string;
+  stripeYearlyPriceId: string;
   features: string[];
   limits: {
     charactersPerMonth: number;
@@ -13,7 +15,7 @@ export interface SubscriptionTier {
     tokens: {
       available: boolean;
       price: number;
-      amount: number; // in characters
+      amount: number;
     };
     voiceClones: {
       available: boolean;
@@ -30,6 +32,8 @@ export const subscriptionTiers: SubscriptionTier[] = [
     name: 'Free Trial',
     monthlyPrice: 0,
     yearlyPrice: 0,
+    stripePriceId: '',
+    stripeYearlyPriceId: '',
     features: [
       '3 days full Professional access',
       '3 free generations (3 min each)',
@@ -60,7 +64,9 @@ export const subscriptionTiers: SubscriptionTier[] = [
     id: 'professional',
     name: 'Professional',
     monthlyPrice: 39.99,
-    yearlyPrice: 383.90, // 20% off monthly price
+    yearlyPrice: 383.90,
+    stripePriceId: 'price_1QJciwGTXKQOsgznGHYwmY9o',
+    stripeYearlyPriceId: 'price_1QJcixGTXKQOsgzn5K0IlyR0',
     features: [
       'WaveNet & Neural2 voices',
       '3 custom voice clones',
@@ -82,7 +88,7 @@ export const subscriptionTiers: SubscriptionTier[] = [
       voiceClones: {
         available: true,
         price: 19.99,
-        maxAdditional: 7 // Up to 10 total
+        maxAdditional: 7
       },
       priority: 'Standard priority'
     }
@@ -91,7 +97,9 @@ export const subscriptionTiers: SubscriptionTier[] = [
     id: 'premium',
     name: 'Premium',
     monthlyPrice: 79.99,
-    yearlyPrice: 767.90, // 20% off monthly price
+    yearlyPrice: 767.90,
+    stripePriceId: 'price_1QJcixGTXKQOsgzntFkccdTg',
+    stripeYearlyPriceId: 'price_1QJcixGTXKQOsgznqRPzlJJX',
     features: [
       'All voice collections',
       '5 custom voice clones',
@@ -113,7 +121,7 @@ export const subscriptionTiers: SubscriptionTier[] = [
       voiceClones: {
         available: true,
         price: 19.99,
-        maxAdditional: 15 // Up to 20 total
+        maxAdditional: 15
       },
       priority: 'High priority'
     }
@@ -122,7 +130,9 @@ export const subscriptionTiers: SubscriptionTier[] = [
     id: 'enterprise',
     name: 'Enterprise',
     monthlyPrice: 149.99,
-    yearlyPrice: 1439.90, // 20% off monthly price
+    yearlyPrice: 1439.90,
+    stripePriceId: 'price_1QJcixGTXKQOsgznqRPzlJJX_enterprise',
+    stripeYearlyPriceId: 'price_1QJcixGTXKQOsgznqRPzlJJX_enterprise_yearly',
     features: [
       'All voices + exclusive access',
       '10 custom voice clones',
@@ -139,12 +149,12 @@ export const subscriptionTiers: SubscriptionTier[] = [
       tokens: {
         available: true,
         price: 4.99,
-        amount: 1000000 // 1M chars for same price
+        amount: 1000000
       },
       voiceClones: {
         available: true,
         price: 19.99,
-        maxAdditional: 999 // Unlimited for practical purposes
+        maxAdditional: 999
       },
       priority: 'Highest priority'
     }

@@ -1,5 +1,6 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
-const User = require('../models/user.model');
+const mongoose = require('mongoose');
+const { User } = require('../models/user.model');
 const Payment = require('../models/payment.model');
 const notificationService = require('./notification.service');
 
@@ -40,16 +41,24 @@ class SubscriptionService {
         JSON.parse(price.product.metadata.features) : {};
 
       // Update user subscription
-      await User.findByIdAndUpdate(userId, {
-        $set: {
-          'subscription.planId': planId,
-          'subscription.status': status,
-          'subscription.currentPeriodEnd': currentPeriodEnd,
-          'subscription.cancelAtPeriodEnd': cancelAtPeriodEnd,
-          'subscription.features': features,
-          'subscription.updatedAt': new Date()
-        }
-      });
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            'subscription.planId': planId,
+            'subscription.status': status,
+            'subscription.currentPeriodEnd': currentPeriodEnd,
+            'subscription.cancelAtPeriodEnd': cancelAtPeriodEnd,
+            'subscription.features': features,
+            'subscription.updatedAt': new Date()
+          }
+        },
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('User not found');
+      }
 
       // Send notification
       await notificationService.sendSubscriptionNotification(
@@ -75,14 +84,22 @@ class SubscriptionService {
     try {
       const endDate = new Date(subscription.current_period_end * 1000);
 
-      await User.findByIdAndUpdate(userId, {
-        $set: {
-          'subscription.status': 'canceled',
-          'subscription.canceledAt': new Date(),
-          'subscription.endDate': endDate,
-          'subscription.updatedAt': new Date()
-        }
-      });
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            'subscription.status': 'canceled',
+            'subscription.canceledAt': new Date(),
+            'subscription.endDate': endDate,
+            'subscription.updatedAt': new Date()
+          }
+        },
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('User not found');
+      }
 
       // Send notification
       await notificationService.sendSubscriptionNotification(
@@ -94,6 +111,72 @@ class SubscriptionService {
       return { success: true };
     } catch (error) {
       console.error('Error handling subscription cancellation:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle addon purchase
+   */
+  async handleAddonPurchase(userId, addonType, quantity) {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      let update = {};
+      let notificationType = '';
+      let notificationData = {};
+
+      switch (addonType) {
+        case 'tokens':
+          const tokensToAdd = quantity * 500000; // 500K chars per token
+          update = {
+            $inc: { 'usage.charactersRemaining': tokensToAdd }
+          };
+          notificationType = 'tokens_purchased';
+          notificationData = {
+            amount: tokensToAdd,
+            total: (user.usage?.charactersRemaining || 0) + tokensToAdd
+          };
+          break;
+
+        case 'voice_clone':
+          update = {
+            $inc: { 'subscription.voiceClones.available': quantity }
+          };
+          notificationType = 'voice_clones_purchased';
+          notificationData = {
+            amount: quantity,
+            total: (user.subscription?.voiceClones?.available || 0) + quantity
+          };
+          break;
+
+        default:
+          throw new Error('Invalid addon type');
+      }
+
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        update,
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('Failed to update user');
+      }
+
+      // Send notification
+      await notificationService.sendSubscriptionNotification(
+        userId,
+        notificationType,
+        notificationData
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error handling addon purchase:', error);
       throw error;
     }
   }
@@ -174,12 +257,20 @@ class SubscriptionService {
       await this.recordPayment(userId, invoice);
 
       // Update subscription status
-      await User.findByIdAndUpdate(userId, {
-        $set: {
-          'subscription.status': 'past_due',
-          'subscription.updatedAt': new Date()
-        }
-      });
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            'subscription.status': 'past_due',
+            'subscription.updatedAt': new Date()
+          }
+        },
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('User not found');
+      }
 
       // Send notification
       await notificationService.sendSubscriptionNotification(
@@ -205,6 +296,10 @@ class SubscriptionService {
     try {
       const user = await User.findById(userId);
       
+      if (!user) {
+        throw new Error('User not found');
+      }
+
       if (!user.stripeCustomerId) {
         throw new Error('User has no Stripe customer ID');
       }
@@ -237,6 +332,10 @@ class SubscriptionService {
     try {
       const user = await User.findById(userId);
       
+      if (!user) {
+        throw new Error('User not found');
+      }
+
       if (!user.stripeCustomerId) {
         throw new Error('User has no Stripe customer ID');
       }
@@ -360,9 +459,15 @@ class SubscriptionService {
    */
   async updateCustomerId(userId, stripeCustomerId) {
     try {
-      await User.findByIdAndUpdate(userId, {
-        $set: { stripeCustomerId }
-      });
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { $set: { stripeCustomerId } },
+        { new: true }
+      );
+
+      if (!updatedUser) {
+        throw new Error('User not found');
+      }
 
       return { success: true };
     } catch (error) {

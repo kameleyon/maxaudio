@@ -2,8 +2,12 @@ import { loadStripe } from '@stripe/stripe-js';
 import type { Stripe } from '@stripe/stripe-js';
 import axios from 'axios';
 
-// Initialize Stripe
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY);
+// Initialize Stripe with HTTPS check
+const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY, {
+  stripeAccount: import.meta.env.VITE_STRIPE_ACCOUNT_ID,
+  apiVersion: '2023-10-16',
+  locale: 'en',
+});
 
 interface CreateCheckoutSessionParams {
   priceId: string;
@@ -19,10 +23,10 @@ interface CreatePortalSessionParams {
 }
 
 class StripeService {
-  private baseUrl = '/api/stripe';
+  private baseUrl = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/stripe` : '/api/stripe';
 
   // Create a checkout session for new subscriptions
-  async createCheckoutSession(params: CreateCheckoutSessionParams, token: string): Promise<{ sessionId: string }> {
+  async createCheckoutSession(params: CreateCheckoutSessionParams, token: string): Promise<{ sessionId: string; url: string }> {
     try {
       const headers = {
         'Authorization': `Bearer ${token}`,
@@ -53,6 +57,10 @@ class StripeService {
 
   // Get Stripe instance
   async getStripe(): Promise<Stripe | null> {
+    // Check if we're in a secure context
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      console.warn('Stripe requires HTTPS in production. Current protocol:', window.location.protocol);
+    }
     return await stripePromise;
   }
 
@@ -62,9 +70,16 @@ class StripeService {
       const stripe = await this.getStripe();
       if (!stripe) throw new Error('Stripe not initialized');
 
-      const { sessionId } = await this.createCheckoutSession(params, token);
-      const { error } = await stripe.redirectToCheckout({ sessionId });
+      const { sessionId, url } = await this.createCheckoutSession(params, token);
 
+      // If we have a direct URL, use it (more reliable)
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+
+      // Fallback to redirectToCheckout
+      const { error } = await stripe.redirectToCheckout({ sessionId });
       if (error) {
         throw error;
       }

@@ -58,10 +58,10 @@ router.get('/invoices', requireAuth, async (req, res) => {
   }
 });
 
-// Create checkout session
+// Create checkout session for subscription
 router.post('/create-checkout-session', requireAuth, async (req, res) => {
   try {
-    const { priceId } = req.body;
+    const { priceId, isAddon } = req.body;
 
     // Create or get customer
     let customer;
@@ -88,11 +88,12 @@ router.post('/create-checkout-session', requireAuth, async (req, res) => {
           quantity: 1,
         },
       ],
-      mode: 'subscription',
+      mode: isAddon ? 'payment' : 'subscription',
       success_url: `${process.env.CLIENT_URL}/settings?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.CLIENT_URL}/settings`,
       metadata: {
-        userId: req.user.id
+        userId: req.user.id,
+        isAddon: isAddon ? 'true' : 'false'
       },
       allow_promotion_codes: true,
       billing_address_collection: 'required',
@@ -105,6 +106,60 @@ router.post('/create-checkout-session', requireAuth, async (req, res) => {
     res.json({ sessionId: session.id, url: session.url });
   } catch (error) {
     console.error('Error creating checkout session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create checkout session for add-ons
+router.post('/create-addon-checkout-session', requireAuth, async (req, res) => {
+  try {
+    const { addonType, quantity } = req.body;
+
+    // Get the appropriate price ID based on the user's subscription tier and addon type
+    let priceId;
+    if (addonType === 'tokens') {
+      switch (req.user.subscription?.plan) {
+        case 'free':
+          priceId = process.env.STRIPE_PRICE_ID_TOKENS_FREE;
+          break;
+        case 'professional':
+          priceId = process.env.STRIPE_PRICE_ID_TOKENS_PRO;
+          break;
+        case 'premium':
+        case 'enterprise':
+          priceId = process.env.STRIPE_PRICE_ID_TOKENS_PREMIUM;
+          break;
+        default:
+          throw new Error('Invalid subscription plan');
+      }
+    } else if (addonType === 'voice_clone') {
+      priceId = process.env.STRIPE_PRICE_ID_VOICE_CLONE;
+    } else {
+      throw new Error('Invalid addon type');
+    }
+
+    const session = await stripe.checkout.sessions.create({
+      customer: req.user.stripeCustomerId,
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price: priceId,
+          quantity: quantity || 1,
+        },
+      ],
+      mode: 'payment',
+      success_url: `${process.env.CLIENT_URL}/settings?addon_session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.CLIENT_URL}/settings`,
+      metadata: {
+        userId: req.user.id,
+        addonType,
+        quantity: quantity || 1
+      }
+    });
+
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    console.error('Error creating addon checkout session:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -185,8 +240,17 @@ router.post('/verify-session', requireAuth, async (req, res) => {
       return res.status(403).json({ error: 'Session does not belong to user' });
     }
 
-    // Update user's subscription status
-    await subscriptionService.updateSubscription(req.user.id, session.subscription);
+    if (session.metadata.isAddon === 'true') {
+      // Handle addon purchase completion
+      await subscriptionService.handleAddonPurchase(
+        req.user.id,
+        session.metadata.addonType,
+        session.metadata.quantity
+      );
+    } else {
+      // Handle subscription update
+      await subscriptionService.updateSubscription(req.user.id, session.subscription);
+    }
 
     res.json({ success: true });
   } catch (error) {
@@ -223,6 +287,17 @@ router.post('/webhook', express.raw({type: 'application/json'}), async (req, res
 
       case 'customer.subscription.deleted':
         await subscriptionService.handleCancellation(userId, event.data.object);
+        break;
+
+      case 'checkout.session.completed':
+        const session = event.data.object;
+        if (session.metadata.isAddon === 'true') {
+          await subscriptionService.handleAddonPurchase(
+            session.metadata.userId,
+            session.metadata.addonType,
+            session.metadata.quantity
+          );
+        }
         break;
 
       case 'invoice.payment_succeeded':
