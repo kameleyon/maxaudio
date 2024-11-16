@@ -81,6 +81,18 @@ export function ExportPreviewModal({
     }
   }
 
+  const formatFileSize = (size: number): string => {
+    if (size < 1024) {
+      return `${size} B`;
+    } else if (size < 1024 * 1024) {
+      return `${(size / 1024).toFixed(2)} KB`;
+    } else if (size < 1024 * 1024 * 1024) {
+      return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+    } else {
+      return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <div className="bg-[#1a1a2e] rounded-lg border border-white/10 w-full max-w-3xl">
@@ -131,6 +143,10 @@ export function ExportPreviewModal({
                 Filtered to {timeRange === 'month' ? 'last month' : 'last week'}.
               </p>
             )}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-white/60">Size:</span>
+              <span className="text-sm">{formatFileSize(previewContent.length * 2)}</span>
+            </div>
           </div>
         </div>
 

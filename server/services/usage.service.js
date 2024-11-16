@@ -1,4 +1,4 @@
-const clerk = require('../config/clerk');
+import { userService } from './user.service.js';
 const Stripe = require('stripe');
 
 const MAX_RETRY_ATTEMPTS = 3;
@@ -71,8 +71,8 @@ class UsageService {
   // Update user usage data
   async updateUserUsage(userId, usageData) {
     return this.retryOperation(async () => {
-      const user = await clerk.users.getUser(userId);
-      const currentUsage = user.publicMetadata.usage || {};
+      const user = await userService.getUser(userId);
+      const currentUsage = user.metadata.usageData || {};
       
       const updatedUsage = {
         ...currentUsage,
@@ -80,10 +80,10 @@ class UsageService {
         lastUpdated: new Date().toISOString()
       };
 
-      await clerk.users.updateUser(userId, {
-        publicMetadata: {
-          ...user.publicMetadata,
-          usage: updatedUsage
+      await userService.updateUser(userId, {
+        metadata: {
+          ...user.metadata,
+          usageData: updatedUsage
         }
       });
 
@@ -105,8 +105,8 @@ class UsageService {
       const currentCount = this.usageCache.get(key) || 0;
       this.usageCache.set(key, currentCount + 1);
       
-      const user = await clerk.users.getUser(userId);
-      const subscriptionId = user.publicMetadata.subscriptionId;
+      const user = await userService.getUser(userId);
+      const subscriptionId = user.metadata.subscriptionId;
       
       if (!subscriptionId) {
         throw new Error('No active subscription');
@@ -141,11 +141,11 @@ class UsageService {
   // Track character usage with history
   async trackCharacters(userId, characterCount) {
     return this.retryOperation(async () => {
-      const user = await clerk.users.getUser(userId);
-      const currentUsage = Number(user.publicMetadata.charactersUsed || 0);
+      const user = await userService.getUser(userId);
+      const currentUsage = Number(user.metadata.usageData?.charactersUsed || 0);
       const newUsage = currentUsage + characterCount;
 
-      const subscriptionId = user.publicMetadata.subscriptionId;
+      const subscriptionId = user.metadata.subscriptionId;
       if (!subscriptionId) {
         throw new Error('No active subscription');
       }
@@ -179,11 +179,11 @@ class UsageService {
   // Track voice clone usage with history
   async trackVoiceClone(userId) {
     return this.retryOperation(async () => {
-      const user = await clerk.users.getUser(userId);
-      const currentClones = Number(user.publicMetadata.voiceClones || 0);
+      const user = await userService.getUser(userId);
+      const currentClones = Number(user.metadata.usageData?.voiceClones || 0);
       const newCount = currentClones + 1;
 
-      const subscriptionId = user.publicMetadata.subscriptionId;
+      const subscriptionId = user.metadata.subscriptionId;
       if (!subscriptionId) {
         throw new Error('No active subscription');
       }
@@ -217,8 +217,8 @@ class UsageService {
   // Reset monthly usage with history tracking
   async resetMonthlyUsage(userId) {
     return this.retryOperation(async () => {
-      const user = await clerk.users.getUser(userId);
-      const previousUsage = user.publicMetadata.usage || {};
+      const user = await userService.getUser(userId);
+      const previousUsage = user.metadata.usageData || {};
       
       // Store previous usage in history before reset
       const historyKey = `${userId}:${new Date().toISOString()}:reset`;
@@ -286,8 +286,8 @@ class UsageService {
   // Get current usage statistics with trends
   async getUsageStats(userId) {
     return this.retryOperation(async () => {
-      const user = await clerk.users.getUser(userId);
-      const subscriptionId = user.publicMetadata.subscriptionId;
+      const user = await userService.getUser(userId);
+      const subscriptionId = user.metadata.subscriptionId;
       
       if (!subscriptionId) {
         throw new Error('No active subscription');
@@ -317,8 +317,8 @@ class UsageService {
       };
 
       const currentUsage = {
-        charactersUsed: Number(user.publicMetadata.usage?.charactersUsed || 0),
-        voiceClones: Number(user.publicMetadata.usage?.voiceClones || 0),
+        charactersUsed: Number(user.metadata.usageData?.charactersUsed || 0),
+        voiceClones: Number(user.metadata.usageData?.voiceClones || 0),
         requestsThisMinute: this.usageCache.get(this.getUsageKey(userId, 'api_request')) || 0
       };
 

@@ -1,186 +1,138 @@
 import { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Moon, Sun, Globe, User } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
-import { authService, type UserPreferences } from '../../services/auth.service';
+import { useAuth } from '../../hooks/useAuth';
+import { authService } from '../../services/auth.service';
+import { Switch } from '../ui/switch';
+import { Select, type SelectOption } from '../ui/select';
 
-const AVAILABLE_LANGUAGES = [
-  { code: 'en', name: 'English' },
-  { code: 'es', name: 'Español' },
-  { code: 'fr', name: 'Français' },
-  { code: 'de', name: 'Deutsch' },
-  { code: 'zh', name: '中文' },
-  { code: 'ja', name: '日本語' },
-] as const;
+type ThemeValue = 'light' | 'dark' | 'system';
+type LanguageValue = 'en' | 'es' | 'fr' | 'de' | 'it' | 'pt' | 'ru' | 'zh' | 'ja' | 'ko';
 
-type LanguageCode = typeof AVAILABLE_LANGUAGES[number]['code'];
+const languages: SelectOption<LanguageValue>[] = [
+  { value: 'en', label: 'English' },
+  { value: 'es', label: 'Spanish' },
+  { value: 'fr', label: 'French' },
+  { value: 'de', label: 'German' },
+  { value: 'it', label: 'Italian' },
+  { value: 'pt', label: 'Portuguese' },
+  { value: 'ru', label: 'Russian' },
+  { value: 'zh', label: 'Chinese' },
+  { value: 'ja', label: 'Japanese' },
+  { value: 'ko', label: 'Korean' },
+];
 
-interface FormData {
-  name: string;
-  preferredLanguage: LanguageCode;
-  emailNotifications: boolean;
-}
+const themes: SelectOption<ThemeValue>[] = [
+  { value: 'light', label: 'Light' },
+  { value: 'dark', label: 'Dark' },
+  { value: 'system', label: 'System' },
+];
 
 export function PreferencesPanel() {
   const { user } = useAuth();
-  const { theme, setTheme } = useTheme();
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState<FormData>({
-    name: user?.name || '',
-    preferredLanguage: (user?.preferences?.preferredLanguage as LanguageCode) || 'en',
-    emailNotifications: user?.preferences?.emailNotifications !== false,
-  });
-
-  const handleUpdateProfile = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    
-    setIsUpdating(true);
-    setError(null);
-
-    try {
-      await authService.updatePreferences({
-        preferredLanguage: formData.preferredLanguage,
-        emailNotifications: formData.emailNotifications,
-        theme: theme
-      });
-    } catch (err) {
-      console.error('Failed to update profile:', err);
-      setError(err instanceof Error ? err.message : 'Failed to update profile');
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+  const [isSaving, setIsSaving] = useState(false);
 
   if (!user) {
     return null;
   }
 
+  const handleThemeChange = async (theme: ThemeValue) => {
+    try {
+      setIsSaving(true);
+      await authService.updatePreferences({
+        ...user.preferences,
+        theme,
+      });
+    } catch (error) {
+      console.error('Failed to update theme:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleLanguageChange = async (language: LanguageValue) => {
+    try {
+      setIsSaving(true);
+      await authService.updatePreferences({
+        ...user.preferences,
+        language,
+      });
+    } catch (error) {
+      console.error('Failed to update language:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleNotificationsChange = async (enabled: boolean) => {
+    try {
+      setIsSaving(true);
+      await authService.updatePreferences({
+        ...user.preferences,
+        emailNotifications: enabled,
+      });
+    } catch (error) {
+      console.error('Failed to update notifications:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
-    <div className="space-y-8">
-      {/* Profile Information */}
+    <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold mb-6">Profile Information</h2>
-        <form onSubmit={handleUpdateProfile} className="space-y-6">
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-white/60 mb-2">
-                Display Name
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
-                <input
-                  type="text"
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="Your display name"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-white/60 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                id="email"
-                value={user.email}
-                disabled
-                className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/40"
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm">
-              {error}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={isUpdating}
-            className="w-full px-4 py-2 bg-primary hover:bg-primary/80 disabled:bg-primary/50 rounded-lg transition-colors"
-          >
-            {isUpdating ? 'Updating...' : 'Update Profile'}
-          </button>
-        </form>
+        <h3 className="text-lg font-medium">Preferences</h3>
+        <p className="text-sm text-gray-500">
+          Manage your application preferences and settings.
+        </p>
       </div>
 
-      {/* Theme Preferences */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6">Theme Preferences</h2>
-        <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              {theme === 'dark' ? (
-                <Moon className="w-5 h-5 text-primary" />
-              ) : (
-                <Sun className="w-5 h-5 text-primary" />
-              )}
-              <span>Theme Mode</span>
-            </div>
-            <button
-              onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              {theme === 'dark' ? 'Switch to Light' : 'Switch to Dark'}
-            </button>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <label htmlFor="theme" className="block text-sm font-medium">
+              Theme
+            </label>
+            <p className="text-sm text-gray-500">Choose your preferred theme.</p>
           </div>
+          <Select<ThemeValue>
+            id="theme"
+            value={user.preferences.theme}
+            options={themes}
+            onChange={handleThemeChange}
+            disabled={isSaving}
+          />
         </div>
-      </div>
 
-      {/* Language Preferences */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6">Language Preferences</h2>
-        <div className="p-4 bg-white/5 border border-white/10 rounded-lg space-y-4">
-          <div className="flex items-center gap-3 mb-4">
-            <Globe className="w-5 h-5 text-primary" />
-            <span>Interface Language</span>
+        <div className="flex items-center justify-between">
+          <div>
+            <label htmlFor="language" className="block text-sm font-medium">
+              Language
+            </label>
+            <p className="text-sm text-gray-500">Select your preferred language.</p>
           </div>
-          
-          <select
-            value={formData.preferredLanguage}
-            onChange={(e) => setFormData(prev => ({ 
-              ...prev, 
-              preferredLanguage: e.target.value as LanguageCode 
-            }))}
-            className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-          >
-            {AVAILABLE_LANGUAGES.map(lang => (
-              <option key={lang.code} value={lang.code}>
-                {lang.name}
-              </option>
-            ))}
-          </select>
-
-          <p className="text-sm text-white/40">
-            This will change the language of the interface. Your content and generated audio will not be affected.
-          </p>
+          <Select<LanguageValue>
+            id="language"
+            value={user.preferences.language as LanguageValue}
+            options={languages}
+            onChange={handleLanguageChange}
+            disabled={isSaving}
+          />
         </div>
-      </div>
 
-      {/* Notification Preferences */}
-      <div>
-        <h2 className="text-xl font-semibold mb-6">Notification Preferences</h2>
-        <div className="p-4 bg-white/5 border border-white/10 rounded-lg">
-          <label className="flex items-center justify-between cursor-pointer">
-            <span>Email Notifications</span>
-            <input
-              type="checkbox"
-              checked={formData.emailNotifications}
-              onChange={(e) => setFormData(prev => ({ 
-                ...prev, 
-                emailNotifications: e.target.checked 
-              }))}
-              className="w-5 h-5 rounded text-primary bg-white/5 border-white/10 focus:ring-primary"
-            />
-          </label>
+        <div className="flex items-center justify-between">
+          <div>
+            <label htmlFor="notifications" className="block text-sm font-medium">
+              Email Notifications
+            </label>
+            <p className="text-sm text-gray-500">
+              Receive email notifications about important updates.
+            </p>
+          </div>
+          <Switch
+            id="notifications"
+            checked={user.preferences.emailNotifications}
+            onCheckedChange={handleNotificationsChange}
+            disabled={isSaving}
+          />
         </div>
       </div>
     </div>

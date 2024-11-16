@@ -1,146 +1,129 @@
-import { render, screen, waitFor } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { useUser, useSession } from '@clerk/clerk-react'
-import { AdminRoute } from '../AdminRoute'
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { AdminRoute } from '../AdminRoute';
+import { AuthContext } from '../../../contexts/AuthContext';
 
-// Mock Clerk hooks
-jest.mock('@clerk/clerk-react', () => ({
-  useUser: jest.fn(),
-  useSession: jest.fn()
-}))
-
-const mockUseUser = useUser as jest.Mock
-const mockUseSession = useSession as jest.Mock
+// Mock auth context
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: jest.fn(),
+}));
 
 describe('AdminRoute', () => {
-  const TestComponent = () => <div>Protected Admin Content</div>
-
   beforeEach(() => {
-    // Reset mocks before each test
-    mockUseUser.mockReset()
-    mockUseSession.mockReset()
-  })
+    jest.clearAllMocks();
+  });
 
-  it('shows loading state when clerk is not loaded', () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: false,
+  it('shows loading state when authentication is loading', () => {
+    const mockAuthContext = {
+      isAuthenticated: false,
+      isLoading: true,
       user: null,
-      isSignedIn: false
-    })
-
-    mockUseSession.mockReturnValue({
-      session: null,
-      isLoaded: false
-    })
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
 
     render(
-      <MemoryRouter>
-        <AdminRoute>
-          <TestComponent />
-        </AdminRoute>
-      </MemoryRouter>
-    )
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <AdminRoute>
+            <div>Protected Content</div>
+          </AdminRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
 
-    expect(screen.getByRole('status')).toBeInTheDocument()
-  })
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('redirects to home when user is not authenticated', () => {
+    const mockAuthContext = {
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <AdminRoute>
+            <div>Protected Content</div>
+          </AdminRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
 
   it('redirects to home when user is not an admin', () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: true,
+    const mockAuthContext = {
+      isAuthenticated: true,
+      isLoading: false,
       user: {
-        publicMetadata: {
-          role: 'user'
-        }
+        id: '123',
+        email: 'user@example.com',
+        username: 'testuser',
+        name: 'Test User',
+        role: 'user',
+        preferences: {
+          theme: 'light' as const,
+          emailNotifications: true,
+          language: 'en',
+        },
       },
-      isSignedIn: true
-    })
-
-    mockUseSession.mockReturnValue({
-      session: {
-        getToken: jest.fn()
-      },
-      isLoaded: true
-    })
-
-    const { container } = render(
-      <MemoryRouter initialEntries={['/admin']}>
-        <Routes>
-          <Route path="/admin" element={
-            <AdminRoute>
-              <TestComponent />
-            </AdminRoute>
-          } />
-          <Route path="/" element={<div>Home Page</div>} />
-        </Routes>
-      </MemoryRouter>
-    )
-
-    expect(container).toHaveTextContent('Home Page')
-  })
-
-  it('renders protected content for admin users', async () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: true,
-      user: {
-        publicMetadata: {
-          role: 'admin',
-          accessLevel: 'full',
-          teamId: 'team_123',
-          permissions: ['admin:access']
-        }
-      },
-      isSignedIn: true
-    })
-
-    mockUseSession.mockReturnValue({
-      session: {
-        getToken: jest.fn().mockResolvedValue('mock-token')
-      },
-      isLoaded: true
-    })
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
 
     render(
-      <MemoryRouter>
-        <AdminRoute>
-          <TestComponent />
-        </AdminRoute>
-      </MemoryRouter>
-    )
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <AdminRoute>
+            <div>Protected Content</div>
+          </AdminRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
 
-    await waitFor(() => {
-      expect(screen.getByText('Protected Admin Content')).toBeInTheDocument()
-    })
-  })
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
 
-  it('shows error state when verification fails', async () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: true,
+  it('renders children when user is an admin', () => {
+    const mockAuthContext = {
+      isAuthenticated: true,
+      isLoading: false,
       user: {
-        publicMetadata: {
-          role: 'admin',
-          accessLevel: 'basic'
-        }
+        id: '123',
+        email: 'admin@example.com',
+        username: 'admin',
+        name: 'Admin User',
+        role: 'admin',
+        preferences: {
+          theme: 'light' as const,
+          emailNotifications: true,
+          language: 'en',
+        },
       },
-      isSignedIn: true
-    })
-
-    mockUseSession.mockReturnValue({
-      session: {
-        getToken: jest.fn().mockResolvedValue('mock-token')
-      },
-      isLoaded: true
-    })
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
 
     render(
-      <MemoryRouter>
-        <AdminRoute requiredAccessLevel="full">
-          <TestComponent />
-        </AdminRoute>
-      </MemoryRouter>
-    )
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <AdminRoute>
+            <div>Protected Content</div>
+          </AdminRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
 
-    await waitFor(() => {
-      expect(screen.getByText(/insufficient access level/i)).toBeInTheDocument()
-    })
-  })
-})
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+});

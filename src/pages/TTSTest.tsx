@@ -1,83 +1,76 @@
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Save, RefreshCw } from 'lucide-react';
 import { synthesizeSpeech, getAvailableVoices, type Voice } from '../services/tts.service';
-import { GoogleAuthStatus } from '../components/tts/GoogleAuthStatus';
 
 export function TTSTest() {
   const [text, setText] = useState('');
   const [voices, setVoices] = useState<Voice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState('');
-  const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
-  const fetchVoices = async () => {
-    try {
-      const availableVoices = await getAvailableVoices();
-      setVoices(availableVoices);
-      if (availableVoices.length > 0) {
-        setSelectedVoice(availableVoices[0].name);
-      }
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch voices');
-    }
-  };
-
   useEffect(() => {
-    fetchVoices();
+    const loadVoices = async () => {
+      try {
+        const availableVoices = await getAvailableVoices();
+        setVoices(availableVoices);
+        if (availableVoices.length > 0) {
+          setSelectedVoice(availableVoices[0].id);
+        }
+      } catch (error) {
+        console.error('Failed to load voices:', error);
+      }
+    };
+
+    loadVoices();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError(null);
+    if (!text || !selectedVoice) return;
 
     try {
-      const audioBlob = await synthesizeSpeech(text, selectedVoice);
-      const url = URL.createObjectURL(audioBlob);
+      setIsLoading(true);
+      const audioData = await synthesizeSpeech(text, selectedVoice);
+      const blob = new Blob([audioData], { type: 'audio/mp3' });
+      const url = URL.createObjectURL(blob);
       setAudioUrl(url);
-      setIsPlaying(true);
-      
-      if (audioRef.current) {
-        audioRef.current.src = url;
-        audioRef.current.play();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Speech synthesis failed');
+      setIsPlaying(false);
+    } catch (error) {
+      console.error('Failed to synthesize speech:', error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handlePlayPause = () => {
-    if (audioRef.current) {
-      if (isPlaying) {
-        audioRef.current.pause();
-      } else {
-        audioRef.current.play();
-      }
-      setIsPlaying(!isPlaying);
+    if (!audioRef.current) return;
+
+    if (isPlaying) {
+      audioRef.current.pause();
+    } else {
+      audioRef.current.play();
     }
+    setIsPlaying(!isPlaying);
   };
 
   const handleSave = () => {
-    if (audioUrl) {
-      const a = document.createElement('a');
-      a.href = audioUrl;
-      a.download = 'tts-audio.mp3';
-      a.click();
-    }
+    if (!audioUrl) return;
+
+    const a = document.createElement('a');
+    a.href = audioUrl;
+    a.download = 'synthesized-speech.mp3';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   return (
     <div className="max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">Text-to-Speech Test</h1>
       <p className="text-white/60 mb-8">Test Google Cloud Text-to-Speech integration</p>
-
-      <GoogleAuthStatus />
 
       <div className="bg-white/5 rounded-lg border border-white/10 p-6 mt-6">
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -89,11 +82,8 @@ export function TTSTest() {
               id="text"
               value={text}
               onChange={(e) => setText(e.target.value)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg 
-                       focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
-                       min-h-[150px]"
+              className="w-full h-32 px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="Enter text to convert to speech..."
-              required
             />
           </div>
 
@@ -105,26 +95,21 @@ export function TTSTest() {
               id="voice"
               value={selectedVoice}
               onChange={(e) => setSelectedVoice(e.target.value)}
-              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg 
-                       focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             >
               {voices.map((voice) => (
-                <option key={voice.name} value={voice.name}>
-                  {voice.languageCode} - {voice.gender}
+                <option key={voice.id} value={voice.id}>
+                  {voice.name} ({voice.language})
                 </option>
               ))}
             </select>
           </div>
 
-          {error && (
-            <div className="text-red-500 text-sm">{error}</div>
-          )}
-
-          <div className="flex gap-4">
+          <div className="flex items-center gap-4">
             <button
               type="submit"
-              disabled={isLoading}
-              className="flex-1 flex items-center justify-center gap-2 px-6 py-2 bg-primary 
+              disabled={isLoading || !text || !selectedVoice}
+              className="flex items-center gap-2 px-4 py-2 bg-primary
                        hover:bg-primary/80 rounded-lg transition-colors disabled:opacity-50"
             >
               {isLoading ? (
@@ -164,18 +149,12 @@ export function TTSTest() {
         </form>
 
         {audioUrl && (
-          <div className="mt-6 p-4 bg-white/5 rounded-lg border border-white/10">
-            <audio
-              ref={audioRef}
-              controls
-              className="w-full"
-              onPlay={() => setIsPlaying(true)}
-              onPause={() => setIsPlaying(false)}
-            >
-              <source src={audioUrl} type="audio/mpeg" />
-              Your browser does not support the audio element.
-            </audio>
-          </div>
+          <audio
+            ref={audioRef}
+            src={audioUrl}
+            onEnded={() => setIsPlaying(false)}
+            className="hidden"
+          />
         )}
       </div>
     </div>

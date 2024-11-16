@@ -1,18 +1,19 @@
 import axios from 'axios';
 
 export interface Voice {
+  id: string;
   name: string;
-  languageCode: string;
+  language: string;
   gender: string;
 }
 
-export async function synthesizeSpeech(text: string, voice: string): Promise<Blob> {
+export async function synthesizeSpeech(text: string, voiceId: string): Promise<ArrayBuffer> {
   try {
     const response = await axios.post('/api/tts/synthesize', 
-      { text, voice },
-      { responseType: 'blob' }
+      { text, voiceId },
+      { responseType: 'arraybuffer' }
     );
-    return new Blob([response.data], { type: 'audio/mpeg' });
+    return response.data;
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : 'Speech synthesis failed');
   }
@@ -21,11 +22,7 @@ export async function synthesizeSpeech(text: string, voice: string): Promise<Blo
 export async function getAvailableVoices(): Promise<Voice[]> {
   try {
     const response = await axios.get<Voice[]>('/api/tts/voices');
-    return response.data.map(voice => ({
-      name: String(voice.name),
-      languageCode: String(voice.languageCode),
-      gender: String(voice.gender)
-    }));
+    return response.data;
   } catch (error) {
     throw new Error(error instanceof Error ? error.message : 'Failed to fetch voices');
   }

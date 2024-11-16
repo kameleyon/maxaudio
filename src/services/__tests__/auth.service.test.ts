@@ -1,100 +1,136 @@
-import { http, HttpResponse } from 'msw'
-import { server } from '../../mocks/server'
-import { checkGoogleAuth } from '../auth.service'
+import { setupServer } from 'msw/node';
+import { http, HttpResponse } from 'msw';
+import { authService } from '../auth.service';
 
-describe('auth.service', () => {
-  describe('checkGoogleAuth', () => {
-    it('returns successful authentication response', async () => {
-      // Mock successful response
+const server = setupServer();
+
+beforeAll(() => server.listen());
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+describe('AuthService', () => {
+  describe('login', () => {
+    it('successfully logs in with valid credentials', async () => {
+      const mockResponse = {
+        user: {
+          id: '123',
+          email: 'test@example.com',
+          username: 'testuser',
+          name: 'Test User',
+          role: 'user',
+          preferences: {
+            theme: 'light' as const,
+            emailNotifications: true,
+            language: 'en',
+          },
+        },
+        token: 'mock-jwt-token',
+      };
+
       server.use(
-        http.get('/api/auth/google-token', () => {
-          return HttpResponse.json({
-            authenticated: true,
-            message: 'Successfully authenticated with Google Cloud',
-            voicesAvailable: 100
-          })
+        http.post('/api/auth/login', () => {
+          return HttpResponse.json(mockResponse);
         })
-      )
+      );
 
-      const result = await checkGoogleAuth()
+      const response = await authService.login('test@example.com', 'password123');
+      expect(response).toEqual(mockResponse);
+    });
 
-      expect(result).toEqual({
-        authenticated: true,
-        message: 'Successfully authenticated with Google Cloud',
-        voicesAvailable: 100
-      })
-    })
-
-    it('returns failed authentication response', async () => {
-      // Mock failed response
+    it('throws error with invalid credentials', async () => {
       server.use(
-        http.get('/api/auth/google-token', () => {
-          return HttpResponse.json({
-            authenticated: false,
-            message: 'Failed to authenticate with Google Cloud'
-          })
+        http.post('/api/auth/login', () => {
+          return new HttpResponse(null, { status: 401 });
         })
-      )
+      );
 
-      const result = await checkGoogleAuth()
+      await expect(authService.login('wrong@example.com', 'wrongpass')).rejects.toThrow();
+    });
+  });
 
-      expect(result).toEqual({
-        authenticated: false,
-        message: 'Failed to authenticate with Google Cloud'
-      })
-    })
+  describe('register', () => {
+    it('successfully registers a new user', async () => {
+      const mockResponse = {
+        user: {
+          id: '123',
+          email: 'new@example.com',
+          username: 'newuser',
+          name: 'New User',
+          role: 'user',
+          preferences: {
+            theme: 'light' as const,
+            emailNotifications: true,
+            language: 'en',
+          },
+        },
+        token: 'mock-jwt-token',
+      };
 
-    it('handles network errors', async () => {
-      // Mock network error
       server.use(
-        http.get('/api/auth/google-token', () => {
-          return HttpResponse.error()
+        http.post('/api/auth/register', () => {
+          return HttpResponse.json(mockResponse);
         })
-      )
+      );
 
-      const result = await checkGoogleAuth()
+      const response = await authService.register({
+        email: 'new@example.com',
+        password: 'password123',
+        username: 'newuser',
+      });
 
-      expect(result).toEqual({
-        authenticated: false,
-        message: expect.any(String)
-      })
-    })
+      expect(response).toEqual(mockResponse);
+    });
 
-    it('handles malformed responses', async () => {
-      // Mock malformed response
+    it('throws error with invalid registration data', async () => {
       server.use(
-        http.get('/api/auth/google-token', () => {
-          return HttpResponse.json({
-            authenticated: 'not-a-boolean', // Invalid type
-            message: 123, // Invalid type
-            voicesAvailable: 'not-a-number' // Invalid type
-          })
+        http.post('/api/auth/register', () => {
+          return new HttpResponse(null, { status: 400 });
         })
-      )
+      );
 
-      const result = await checkGoogleAuth()
+      await expect(
+        authService.register({
+          email: 'invalid-email',
+          password: '123',
+          username: '',
+        })
+      ).rejects.toThrow();
+    });
+  });
 
-      expect(result).toEqual({
-        authenticated: false,
-        message: expect.stringContaining(''),
-        voicesAvailable: undefined
-      })
-    })
+  describe('validateToken', () => {
+    it('successfully validates a valid token', async () => {
+      const mockUser = {
+        id: '123',
+        email: 'test@example.com',
+        username: 'testuser',
+        name: 'Test User',
+        role: 'user',
+        preferences: {
+          theme: 'light' as const,
+          emailNotifications: true,
+          language: 'en',
+        },
+      };
 
-    it('handles missing data in response', async () => {
-      // Mock response with missing fields
       server.use(
-        http.get('/api/auth/google-token', () => {
-          return HttpResponse.json({})
+        http.get('/api/auth/validate', () => {
+          return HttpResponse.json(mockUser);
         })
-      )
+      );
 
-      const result = await checkGoogleAuth()
+      const response = await authService.validateToken('valid-token');
+      expect(response).toEqual(mockUser);
+    });
 
-      expect(result).toEqual({
-        authenticated: false,
-        message: expect.stringContaining('')
-      })
-    })
-  })
-})
+    it('throws error with invalid token', async () => {
+      server.use(
+        http.get('/api/auth/validate', () => {
+          return new HttpResponse(null, { status: 401 });
+        })
+      );
+
+      await expect(authService.validateToken('invalid-token')).rejects.toThrow();
+    });
+  });
+});

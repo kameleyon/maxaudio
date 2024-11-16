@@ -1,6 +1,6 @@
 import Stripe from 'stripe';
 import { buffer } from 'micro';
-import clerk from '../config/clerk.js';
+import { userService } from '../services/user.service.js';
 
 // Initialize Stripe with a function to ensure environment variables are loaded
 function getStripe() {
@@ -16,11 +16,11 @@ const RETRY_DELAY_MS = 1000;
 // Helper function to update user metadata
 async function updateUserSubscription(userId, subscriptionData) {
   try {
-    await clerk.users.updateUser(userId, {
-      publicMetadata: {
+    await userService.updateUser(userId, {
+      metadata: {
         subscriptionId: subscriptionData.id,
         subscriptionStatus: subscriptionData.status,
-        subscriptionPlan: subscriptionData.items.data[0].price.lookup_key,
+        subscriptionTier: subscriptionData.items.data[0].price.lookup_key,
         subscriptionPeriodEnd: new Date(subscriptionData.current_period_end * 1000).toISOString(),
         lastUpdated: new Date().toISOString()
       }
@@ -60,13 +60,15 @@ async function handleSubscriptionChange(subscription) {
 // Helper function to handle customer updates
 async function handleCustomerUpdate(customer) {
   try {
-    const users = await clerk.users.getUserList({
-      emailAddress: [customer.email]
+    const users = await userService.getUserList({
+      metadata: {
+        subscriptionId: customer.id
+      }
     });
 
     if (users && users.length > 0) {
-      await clerk.users.updateUser(users[0].id, {
-        publicMetadata: {
+      await userService.updateUser(users[0].id, {
+        metadata: {
           stripeCustomerId: customer.id,
           paymentMethod: customer.invoice_settings?.default_payment_method,
           lastCustomerUpdate: new Date().toISOString()
@@ -84,13 +86,15 @@ async function handleFailedPayment(invoice) {
   try {
     const stripe = getStripe();
     const customer = await stripe.customers.retrieve(invoice.customer);
-    const users = await clerk.users.getUserList({
-      emailAddress: [customer.email]
+    const users = await userService.getUserList({
+      metadata: {
+        subscriptionId: invoice.subscription
+      }
     });
 
     if (users && users.length > 0) {
-      await clerk.users.updateUser(users[0].id, {
-        publicMetadata: {
+      await userService.updateUser(users[0].id, {
+        metadata: {
           paymentStatus: 'failed',
           lastFailedPayment: new Date().toISOString(),
           paymentErrorMessage: invoice.last_payment_error?.message || 'Payment failed'
@@ -130,7 +134,7 @@ export async function stripeWebhookMiddleware(req, res, next) {
     const stripe = getStripe();
     const rawBody = await buffer(req);
     const signature = req.headers['stripe-signature'];
-
+    
     let event;
     if (process.env.STRIPE_WEBHOOK_SECRET && signature) {
       // Verify webhook signature if secret is available
@@ -230,8 +234,8 @@ export async function verifySubscription(req, res, next) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const user = await clerk.users.getUser(userId);
-    const subscriptionId = user.publicMetadata.subscriptionId;
+    const user = await userService.getUser(userId);
+    const subscriptionId = user.metadata.subscriptionId;
 
     if (!subscriptionId) {
       return res.status(403).json({ error: 'No active subscription' });
@@ -283,8 +287,8 @@ export async function checkSubscriptionLimits(req, res, next) {
     }
 
     // Get current usage from user metadata
-    const user = await clerk.users.getUser(userId);
-    const usage = user.publicMetadata.usage || {
+    const user = await userService.getUser(userId);
+    const usage = user.metadata.usage || {
       requestsThisMinute: 0,
       charactersThisMonth: 0,
       lastRequestTime: null
@@ -321,9 +325,9 @@ export async function checkSubscriptionLimits(req, res, next) {
     req.currentUsage = usage;
 
     // Update user metadata with new usage
-    await clerk.users.updateUser(userId, {
-      publicMetadata: {
-        ...user.publicMetadata,
+    await userService.updateUser(userId, {
+      metadata: {
+        ...user.metadata,
         usage
       }
     });

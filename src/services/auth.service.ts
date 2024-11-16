@@ -1,224 +1,112 @@
-import axios, { AxiosError } from 'axios';
-import api from './api';
+import axios from 'axios';
+import { User } from '../contexts/AuthContext';
 
-interface UserPreferences {
-  preferredLanguage?: string;
-  emailNotifications?: boolean;
-  theme?: 'light' | 'dark' | 'system';
-}
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  name: string;
-  role: string;
-  preferences?: UserPreferences;
-}
-
-interface LoginResponse {
-  token: string;
-  refreshToken: string;
+export interface AuthResponse {
   user: User;
-}
-
-interface RegisterResponse {
   token: string;
-  refreshToken: string;
-  user: User;
 }
 
-interface RefreshResponse {
-  token: string;
-  refreshToken: string;
-}
-
-interface RegisterData {
-  username: string;
-  email: string;
-  password: string;
-  name: string;
-}
-
-interface ApiError {
-  error: string;
-}
-
-interface AvailabilityResponse {
-  available: boolean;
+export interface UserPreferences {
+  theme: 'light' | 'dark' | 'system';
+  emailNotifications: boolean;
+  language: string;
 }
 
 class AuthService {
-  private token: string | null = null;
-  private refreshToken: string | null = null;
-  private refreshPromise: Promise<string> | null = null;
+  private baseUrl: string;
 
   constructor() {
-    // Try to get tokens from localStorage
-    this.token = localStorage.getItem('token');
-    this.refreshToken = localStorage.getItem('refreshToken');
-
-    // Set up axios interceptor for token refresh
-    api.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        const originalRequest = error.config;
-
-        // If error is 401 and not a refresh token request
-        if (error.response?.status === 401 && !originalRequest._retry && this.refreshToken) {
-          if (!this.refreshPromise) {
-            this.refreshPromise = this.refreshAccessToken();
-          }
-
-          try {
-            const newToken = await this.refreshPromise;
-            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
-            originalRequest._retry = true;
-            return api(originalRequest);
-          } catch (refreshError) {
-            // If refresh fails, logout user
-            this.logout();
-            throw refreshError;
-          } finally {
-            this.refreshPromise = null;
-          }
-        }
-
-        return Promise.reject(error);
-      }
-    );
+    this.baseUrl = '/api/auth';
   }
 
-  private async refreshAccessToken(): Promise<string> {
+  async login(email: string, password: string): Promise<AuthResponse> {
     try {
-      const response = await api.post<RefreshResponse>('/auth/refresh', {
-        refreshToken: this.refreshToken
+      const response = await axios.post(`${this.baseUrl}/login`, {
+        email,
+        password,
       });
-      this.setTokens(response.data.token, response.data.refreshToken);
-      return response.data.token;
+      return response.data;
     } catch (error) {
-      this.logout();
+      console.error('Login error:', error);
       throw error;
     }
   }
 
-  async login(email: string, password: string): Promise<LoginResponse> {
+  async register(data: { email: string; password: string; username: string }): Promise<AuthResponse> {
     try {
-      const response = await api.post<LoginResponse>('/auth/login', { email, password });
-      this.setTokens(response.data.token, response.data.refreshToken);
+      const response = await axios.post(`${this.baseUrl}/register`, data);
       return response.data;
     } catch (error) {
-      if (error instanceof AxiosError && error.response?.data) {
-        const apiError = error.response.data as ApiError;
-        throw new Error(apiError.error || 'Failed to login');
-      }
-      throw new Error('Failed to login');
+      console.error('Registration error:', error);
+      throw error;
     }
   }
 
-  async register(data: RegisterData): Promise<RegisterResponse> {
+  async validateToken(token: string): Promise<User> {
     try {
-      const response = await api.post<RegisterResponse>('/auth/register', data);
-      this.setTokens(response.data.token, response.data.refreshToken);
+      const response = await axios.get(`${this.baseUrl}/validate`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
       return response.data;
     } catch (error) {
-      if (error instanceof AxiosError && error.response?.data) {
-        const apiError = error.response.data as ApiError;
-        throw new Error(apiError.error || 'Failed to register');
-      }
-      throw new Error('Failed to register');
+      console.error('Token validation error:', error);
+      throw error;
+    }
+  }
+
+  async updatePreferences(preferences: UserPreferences): Promise<void> {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No token found');
+    }
+
+    const response = await fetch('/api/auth/preferences', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ preferences }),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update preferences');
     }
   }
 
   async checkUsernameAvailability(username: string): Promise<boolean> {
     try {
-      const response = await api.get<AvailabilityResponse>(`/auth/check-username/${username}`);
+      const response = await axios.get(`${this.baseUrl}/check-username/${username}`);
       return response.data.available;
     } catch (error) {
-      console.error('Error checking username:', error);
-      return false;
+      console.error('Username check error:', error);
+      throw error;
     }
   }
 
   async checkEmailAvailability(email: string): Promise<boolean> {
     try {
-      const response = await api.get<AvailabilityResponse>(`/auth/check-email/${email}`);
+      const response = await axios.get(`${this.baseUrl}/check-email/${email}`);
       return response.data.available;
     } catch (error) {
-      console.error('Error checking email:', error);
-      return false;
+      console.error('Email check error:', error);
+      throw error;
     }
   }
 
   logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('welcome_seen');
-    this.token = null;
-    this.refreshToken = null;
-
-    // Call logout endpoint to invalidate refresh token
-    api.post('/auth/logout').catch(console.error);
+    localStorage.removeItem('auth_token');
   }
 
   isAuthenticated(): boolean {
-    // Check both localStorage and instance variables
-    const localToken = localStorage.getItem('token');
-    const localRefreshToken = localStorage.getItem('refreshToken');
-    
-    if (localToken && localRefreshToken && !this.token) {
-      this.token = localToken;
-      this.refreshToken = localRefreshToken;
-    }
-    
-    return !!this.token && !!this.refreshToken;
+    return !!localStorage.getItem('auth_token');
   }
 
   getToken(): string | null {
-    // Ensure token is in sync with localStorage
-    const localToken = localStorage.getItem('token');
-    if (localToken && !this.token) {
-      this.token = localToken;
-    }
-    return this.token;
-  }
-
-  private setTokens(token: string, refreshToken: string): void {
-    localStorage.setItem('token', token);
-    localStorage.setItem('refreshToken', refreshToken);
-    this.token = token;
-    this.refreshToken = refreshToken;
-  }
-
-  async getCurrentUser(): Promise<User> {
-    try {
-      if (!this.isAuthenticated()) {
-        throw new Error('Not authenticated');
-      }
-      const response = await api.get<User>('/auth/me');
-      return response.data;
-    } catch (error) {
-      if (error instanceof AxiosError && error.response?.data) {
-        const apiError = error.response.data as ApiError;
-        throw new Error(apiError.error || 'Failed to get user');
-      }
-      throw new Error('Failed to get user');
-    }
-  }
-
-  async updatePreferences(preferences: UserPreferences): Promise<User> {
-    try {
-      const response = await api.put<User>('/user/preferences', { preferences });
-      return response.data;
-    } catch (error) {
-      if (error instanceof AxiosError && error.response?.data) {
-        const apiError = error.response.data as ApiError;
-        throw new Error(apiError.error || 'Failed to update preferences');
-      }
-      throw new Error('Failed to update preferences');
-    }
+    return localStorage.getItem('token');
   }
 }
 
 export const authService = new AuthService();
-export type { RegisterData, User, UserPreferences };

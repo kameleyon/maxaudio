@@ -1,76 +1,95 @@
-import { render, screen } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { useUser } from '@clerk/clerk-react'
-import { ProtectedRoute } from '../ProtectedRoute'
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { ProtectedRoute } from '../ProtectedRoute';
+import { AuthContext } from '../../../contexts/AuthContext';
 
-// Mock Clerk hooks
-jest.mock('@clerk/clerk-react', () => ({
-  useUser: jest.fn()
-}))
-
-const mockUseUser = useUser as jest.Mock
+// Mock auth context
+jest.mock('../../../contexts/AuthContext', () => ({
+  useAuth: jest.fn(),
+}));
 
 describe('ProtectedRoute', () => {
-  const TestComponent = () => <div>Protected Content</div>
-
   beforeEach(() => {
-    // Reset mock before each test
-    mockUseUser.mockReset()
-  })
+    jest.clearAllMocks();
+  });
 
-  it('shows nothing when clerk is not loaded', () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: false,
-      isSignedIn: false
-    })
-
-    const { container } = render(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <TestComponent />
-        </ProtectedRoute>
-      </MemoryRouter>
-    )
-
-    expect(container).toBeEmptyDOMElement()
-  })
-
-  it('redirects to home when user is not signed in', () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: true,
-      isSignedIn: false
-    })
-
-    const { container } = render(
-      <MemoryRouter initialEntries={['/protected']}>
-        <Routes>
-          <Route path="/protected" element={
-            <ProtectedRoute>
-              <TestComponent />
-            </ProtectedRoute>
-          } />
-          <Route path="/" element={<div>Home Page</div>} />
-        </Routes>
-      </MemoryRouter>
-    )
-
-    expect(container).toHaveTextContent('Home Page')
-  })
-
-  it('renders protected content for authenticated users', () => {
-    mockUseUser.mockReturnValue({
-      isLoaded: true,
-      isSignedIn: true
-    })
+  it('shows loading state when authentication is loading', () => {
+    const mockAuthContext = {
+      isAuthenticated: false,
+      isLoading: true,
+      user: null,
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
 
     render(
-      <MemoryRouter>
-        <ProtectedRoute>
-          <TestComponent />
-        </ProtectedRoute>
-      </MemoryRouter>
-    )
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <ProtectedRoute>
+            <div>Protected Content</div>
+          </ProtectedRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
 
-    expect(screen.getByText('Protected Content')).toBeInTheDocument()
-  })
-})
+    expect(screen.getByRole('status')).toBeInTheDocument();
+  });
+
+  it('redirects to login when user is not authenticated', () => {
+    const mockAuthContext = {
+      isAuthenticated: false,
+      isLoading: false,
+      user: null,
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <ProtectedRoute>
+            <div>Protected Content</div>
+          </ProtectedRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
+
+  it('renders children when user is authenticated', () => {
+    const mockAuthContext = {
+      isAuthenticated: true,
+      isLoading: false,
+      user: {
+        id: '123',
+        email: 'user@example.com',
+        username: 'testuser',
+        name: 'Test User',
+        role: 'user',
+        preferences: {
+          theme: 'light' as const,
+          emailNotifications: true,
+          language: 'en',
+        },
+      },
+      login: async () => {},
+      logout: () => {},
+      register: async () => {},
+    };
+
+    render(
+      <AuthContext.Provider value={mockAuthContext}>
+        <MemoryRouter>
+          <ProtectedRoute>
+            <div>Protected Content</div>
+          </ProtectedRoute>
+        </MemoryRouter>
+      </AuthContext.Provider>
+    );
+
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+});
