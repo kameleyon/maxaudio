@@ -6,6 +6,7 @@ import { TranscriptEditor } from '../components/studio/TranscriptEditor';
 import { AudioPlayer } from '../components/studio/AudioPlayer';
 import { PublishConfirmation } from '../components/studio/PublishConfirmation';
 import { generateContent } from '../services/openrouter';
+import api from '../services/api';
 
 interface GenerateContentParams {
   content: string;
@@ -15,30 +16,21 @@ interface GenerateContentParams {
 
 interface AudioGenerateParams {
   text: string;
-  languageCode: 'en-GB' | 'en-US';
-  voiceName: string;
-  fileName: string;
+  language?: 'en-GB' | 'en-US';
+  voiceName?: string;
+  pitch?: number;
+  speakingRate?: number;
 }
 
-// Get the correct audio endpoint based on environment
-const getAudioEndpoint = () => {
-  if (import.meta.env.PROD) {
-    return '/.netlify/functions/generateAudio';
-  }
-  return '/api/audio/generate';
-};
-
 export function Studio() {
-  // Content state
   const [content, setContent] = useState('');
   const [settings, setSettings] = useState<ContentSettingsType>({
     category: 'podcast',
     tone: 'professional',
     voiceType: 'library',
-    voice: 'en-US-Neural2-C'  // Default to Luna (Female US voice)
+    voice: 'en-US-Neural2-C',
   });
 
-  // Generation state
   const [isGenerating, setIsGenerating] = useState(false);
   const [transcript, setTranscript] = useState<string | null>(null);
   const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
@@ -54,13 +46,7 @@ export function Studio() {
       month: '2-digit',
       year: 'numeric'
     }).replace(/\//g, '');
-
-    // Clean and truncate the text
-    const cleanText = text
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, '') // Remove special characters
-      .slice(0, 20); // Take first 20 characters
-
+    const cleanText = text.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
     return `${cleanText}${dateStr}`;
   };
 
@@ -72,7 +58,7 @@ export function Studio() {
       const params: GenerateContentParams = {
         content,
         tone: settings.tone,
-        category: settings.category
+        category: settings.category,
       };
       
       const generatedContent = await generateContent(params);
@@ -90,31 +76,42 @@ export function Studio() {
   const generateAudio = async (textContent: string) => {
     setIsGeneratingAudio(true);
     try {
-      const fileName = generateFileName(textContent);
       const params: AudioGenerateParams = {
         text: textContent,
-        languageCode: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
+        language: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
         voiceName: settings.voice,
-        fileName
       };
 
-      const response = await fetch(getAudioEndpoint(), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
+      console.log('Generating audio with params:', params);
+
+      const response = await api.post('/tts/generate', params, {
+        responseType: 'blob'
       });
-      
-      if (response.ok) {
-        const audioBlob = await response.blob();
-        const url = URL.createObjectURL(audioBlob);
-        setAudioUrl(url);
-      } else {
-        const errorText = await response.text();
-        throw new Error(errorText);
+
+      // Check if we got a blob response
+      if (!(response.data instanceof Blob)) {
+        throw new Error('Invalid response format');
       }
+
+      // Create object URL from blob
+      const url = URL.createObjectURL(new Blob([response.data], { type: 'audio/mpeg' }));
+      setAudioUrl(url);
     } catch (err) {
       console.error('Audio generation error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to generate audio');
+      let errorMessage = 'Failed to generate audio';
+      
+      if (err.response?.data) {
+        // Try to read error message from blob
+        try {
+          const text = await err.response.data.text();
+          const error = JSON.parse(text);
+          errorMessage = error.error || errorMessage;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsGeneratingAudio(false);
     }
@@ -127,128 +124,63 @@ export function Studio() {
   const handlePublishConfirm = () => {
     setShowPublishConfirm(false);
     setPublishSuccessMessage('Content published successfully!');
-    
-    // Hide the success message after a short delay
-    setTimeout(() => {
-      setPublishSuccessMessage(null);
-    }, 5000);
+    setTimeout(() => setPublishSuccessMessage(null), 5000);
   };
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
-      {/* Header with Workflow */}
       <div>
         <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
         <div className="p-3 bg-white/5 rounded-lg border border-white/10 overflow-x-auto">
-          <div className="flex items-center justify-between text-sm text-white/60 whitespace-nowrap">
-            <div className="flex items-center gap-2">
-              <p className="whitespace-normal">How does it work? Begin with content creation - whether uploading existing material or writing new text. Then customize your settings to match your specific requirements. After generating your output, review and refine it to ensure quality and accuracy. When satisfied, proceed to publication. This streamlined workflow guides you from initial concept to final delivery.</p>
-            </div>
-          </div>
+          <p className="text-white/60 text-sm">How does it work? Begin with content creation...</p>
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">
-          {error}
-        </div>
-      )}
+      {error && <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">{error}</div>}
+      {publishSuccessMessage && <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400">{publishSuccessMessage}</div>}
 
-      {/* Publish Success Message */}
-      {publishSuccessMessage && (
-        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400">
-          {publishSuccessMessage}
-        </div>
-      )}
-
-      {/* Main Content Area */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Left Side - Input and Settings */}
         <div className="space-y-4">
-          <ContentInput 
-            content={content}
-            onChange={setContent}
-          />
-          
-          <ContentSettings 
-            settings={settings}
-            onChange={setSettings}
-          />
-
+          <ContentInput content={content} onChange={setContent} />
+          <ContentSettings settings={settings} onChange={setSettings} />
           <button
             onClick={handleGenerate}
             disabled={!content || isGenerating}
             className="w-full px-6 py-3 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isGenerating ? (
-              <div className="flex items-center justify-center gap-2">
-                <span>Generating Content...</span>
-              </div>
-            ) : (
-              <span>Generate</span>
-            )}
+            {isGenerating ? 'Generating Content...' : 'Generate'}
           </button>
         </div>
 
-        {/* Right Side - Transcript */}
         <div className="h-full overflow-y-auto bg-white/5 rounded-lg border border-white/10">
           {isGenerating ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="flex flex-col items-center gap-2 text-white/60">
-                <Loader2 className="w-8 h-8 animate-spin" />
-                <span>Generating your content...</span>
-              </div>
-            </div>
+            <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin" /></div>
           ) : transcript ? (
-            <TranscriptEditor
-              transcript={transcript}
-              onChange={setTranscript}
-              onRegenerate={generateAudio}
-            />
+            <TranscriptEditor transcript={transcript} onChange={setTranscript} onRegenerate={generateAudio} />
           ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-white/60">
-                Generated content will appear here
-              </p>
-            </div>
+            <div className="flex items-center justify-center h-full"><p className="text-white/60">Generated content will appear here</p></div>
           )}
         </div>
       </div>
 
-      {/* Audio Section */}
       {transcript && (
         <div className="p-4 bg-white/5 rounded-lg border border-white/10">
           {isGeneratingAudio ? (
-            <div className="flex items-center justify-center gap-2 text-white/60 py-4">
-              <Loader2 className="w-6 h-6 animate-spin" />
-              <span>Generating audio...</span>
-            </div>
+            <div className="flex items-center justify-center gap-2 text-white/60 py-4"><Loader2 className="w-6 h-6 animate-spin" />Generating audio...</div>
           ) : audioUrl ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Generated Audio</h2>
-                <button
-                  onClick={handlePublish}
-                  className="px-4 py-2 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors"
-                >
-                  Publish
-                </button>
+                <button onClick={handlePublish} className="px-4 py-2 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors">Publish</button>
               </div>
-              <AudioPlayer 
-                url={audioUrl} 
-                label={generateFileName(transcript)}
-              />
+              <AudioPlayer url={audioUrl} label={generateFileName(transcript)} />
             </div>
           ) : null}
         </div>
       )}
 
-      {/* Publish Confirmation Dialog */}
       {showPublishConfirm && (
-        <PublishConfirmation
-          onConfirm={handlePublishConfirm}
-          onCancel={() => setShowPublishConfirm(false)}
-        />
+        <PublishConfirmation onConfirm={handlePublishConfirm} onCancel={() => setShowPublishConfirm(false)} />
       )}
     </div>
   );
