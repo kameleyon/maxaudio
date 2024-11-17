@@ -1,5 +1,6 @@
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
 const path = require('path');
+const fs = require('fs');
 
 class TTSService {
   constructor() {
@@ -22,6 +23,48 @@ class TTSService {
   }
 
   /**
+   * Split text into chunks that respect sentence boundaries
+   */
+  splitTextIntoChunks(text, maxChunkSize = 4500) {
+    // Split text into sentences
+    const sentences = text.match(/[^.!?]+[.!?]+/g) || [text];
+    const chunks = [];
+    let currentChunk = '';
+
+    for (const sentence of sentences) {
+      if ((currentChunk + sentence).length <= maxChunkSize) {
+        currentChunk += sentence;
+      } else {
+        if (currentChunk) chunks.push(currentChunk.trim());
+        currentChunk = sentence;
+      }
+    }
+
+    if (currentChunk) chunks.push(currentChunk.trim());
+    return chunks;
+  }
+
+  /**
+   * Convert markdown to SSML
+   */
+  convertToSSML(text) {
+    // Replace markdown headers with emphasis and breaks
+    text = text.replace(/#{1,6}\s+(.*?)$/gm, '<emphasis level="strong">$1</emphasis><break time="1s"/>');
+    
+    // Replace bold text with emphasis
+    text = text.replace(/\*\*(.*?)\*\*/g, '<emphasis level="moderate">$1</emphasis>');
+    
+    // Replace italic text with prosody rate
+    text = text.replace(/\*(.*?)\*/g, '<prosody rate="slow">$1</prosody>');
+    
+    // Add breaks for new lines
+    text = text.replace(/\n\n/g, '<break time="1s"/>');
+    
+    // Wrap in speak tags
+    return `<speak>${text}</speak>`;
+  }
+
+  /**
    * Generate audio from text
    */
   async generateAudio(text, options = {}) {
@@ -30,36 +73,87 @@ class TTSService {
         throw new Error('Text is required');
       }
 
-      // Validate text length
-      this.validateText(text);
-
       console.log('Generating audio with options:', {
         text: text.substring(0, 50) + '...',
         ...options
       });
-      
-      const request = {
-        input: { text },
-        voice: {
-          languageCode: options.languageCode || 'en-US',
-          name: options.voiceName || 'en-US-Neural2-F',
-          ssmlGender: options.gender || 'FEMALE'
-        },
-        audioConfig: {
-          audioEncoding: 'MP3',
-          pitch: options.pitch || 0,
-          speakingRate: options.speakingRate || 1.0
-        },
-      };
 
-      console.log('Making TTS API request with:', request);
-      const [response] = await this.client.synthesizeSpeech(request);
+      // Convert to SSML if text contains markdown
+      const hasMarkdown = /[*#]/.test(text);
+      const input = hasMarkdown ? { ssml: this.convertToSSML(text) } : { text };
+      
+      // Split text into chunks if needed
+      const chunks = hasMarkdown ? [input.ssml] : this.splitTextIntoChunks(text);
+      const audioContents = [];
+
+      for (const chunk of chunks) {
+        const request = {
+          input: hasMarkdown ? { ssml: chunk } : { text: chunk },
+          voice: {
+            languageCode: options.languageCode || 'en-US',
+            name: options.voiceName || 'en-US-Neural2-F',
+            ssmlGender: this.getVoiceGender(options.voiceName)
+          },
+          audioConfig: {
+            audioEncoding: 'MP3',
+            pitch: options.pitch || 0,
+            speakingRate: options.speakingRate || 1.0
+          },
+        };
+
+        console.log('Making TTS API request with:', request);
+        const [response] = await this.client.synthesizeSpeech(request);
+        audioContents.push(response.audioContent);
+      }
+
+      // Concatenate audio contents
+      const combinedAudio = Buffer.concat(audioContents);
       console.log('Successfully generated audio');
-      return response.audioContent;
+
+      // Save to audios directory if publish is true
+      if (options.publish) {
+        const fileName = `audio_${Date.now()}.mp3`;
+        const audioDir = path.join(__dirname, '../audios');
+        if (!fs.existsSync(audioDir)) {
+          fs.mkdirSync(audioDir, { recursive: true });
+        }
+        const filePath = path.join(audioDir, fileName);
+        fs.writeFileSync(filePath, combinedAudio);
+        console.log('Saved audio file:', filePath);
+      }
+
+      return combinedAudio;
     } catch (error) {
       console.error('Error generating audio:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get voice gender based on voice name
+   */
+  getVoiceGender(voiceName) {
+    if (!voiceName) return 'FEMALE';
+    
+    // Map voice names to genders
+    const genderMap = {
+      'en-US-Neural2-A': 'FEMALE',
+      'en-US-Neural2-C': 'FEMALE',
+      'en-US-Neural2-D': 'MALE',
+      'en-US-Neural2-E': 'FEMALE',
+      'en-US-Neural2-F': 'FEMALE',
+      'en-US-Neural2-G': 'FEMALE',
+      'en-US-Neural2-H': 'FEMALE',
+      'en-US-Neural2-I': 'MALE',
+      'en-US-Neural2-J': 'MALE',
+      'en-GB-Neural2-A': 'FEMALE',
+      'en-GB-Neural2-B': 'MALE',
+      'en-GB-Neural2-C': 'FEMALE',
+      'en-GB-Neural2-D': 'MALE',
+      'en-GB-Neural2-F': 'FEMALE'
+    };
+
+    return genderMap[voiceName] || 'FEMALE';
   }
 
   /**
@@ -122,17 +216,6 @@ class TTSService {
       console.error('Error getting voice details:', error);
       throw error;
     }
-  }
-
-  /**
-   * Validate text length
-   */
-  validateText(text) {
-    const maxLength = 5000; // Google's limit is 5000 characters
-    if (text.length > maxLength) {
-      throw new Error(`Text length (${text.length}) exceeds maximum allowed (${maxLength})`);
-    }
-    return true;
   }
 
   /**

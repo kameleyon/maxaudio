@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Upload, Loader2, Edit2, Save, RotateCcw, MoreVertical } from 'lucide-react';
 import { ContentInput } from '../components/studio/ContentInput';
 import { ContentSettings, ContentSettingsType } from '../components/studio/ContentSettings';
@@ -7,6 +7,7 @@ import { AudioPlayer } from '../components/studio/AudioPlayer';
 import { PublishConfirmation } from '../components/studio/PublishConfirmation';
 import { generateContent } from '../services/openrouter';
 import api from '../services/api';
+import { AxiosError } from 'axios';
 
 interface GenerateContentParams {
   content: string;
@@ -20,6 +21,7 @@ interface AudioGenerateParams {
   voiceName?: string;
   pitch?: number;
   speakingRate?: number;
+  publish?: boolean;
 }
 
 export function Studio() {
@@ -28,7 +30,7 @@ export function Studio() {
     category: 'podcast',
     tone: 'professional',
     voiceType: 'library',
-    voice: 'en-US-Neural2-C',
+    voice: 'en-US-Neural2-D', // Default to male voice
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -73,37 +75,47 @@ export function Studio() {
     }
   };
 
-  const generateAudio = async (textContent: string) => {
+  const generateAudio = async (textContent: string, publish = false) => {
     setIsGeneratingAudio(true);
     try {
       const params: AudioGenerateParams = {
         text: textContent,
         language: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
         voiceName: settings.voice,
+        publish
       };
 
       console.log('Generating audio with params:', params);
 
       const response = await api.post('/tts/generate', params, {
-        responseType: 'blob'
+        responseType: 'arraybuffer'
       });
 
-      // Check if we got a blob response
-      if (!(response.data instanceof Blob)) {
-        throw new Error('Invalid response format');
+      // Create blob from array buffer
+      const blob = new Blob([response.data], { type: 'audio/mpeg' });
+      
+      // Revoke previous URL if it exists
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
       }
-
-      // Create object URL from blob
-      const url = URL.createObjectURL(new Blob([response.data], { type: 'audio/mpeg' }));
+      
+      // Create new URL
+      const url = URL.createObjectURL(blob);
       setAudioUrl(url);
+
+      if (publish) {
+        setPublishSuccessMessage('Audio published successfully!');
+        setTimeout(() => setPublishSuccessMessage(null), 5000);
+      }
     } catch (err) {
       console.error('Audio generation error:', err);
       let errorMessage = 'Failed to generate audio';
       
-      if (err.response?.data) {
-        // Try to read error message from blob
+      if (err instanceof AxiosError && err.response?.data) {
         try {
-          const text = await err.response.data.text();
+          // Convert array buffer to text
+          const decoder = new TextDecoder('utf-8');
+          const text = decoder.decode(err.response.data);
           const error = JSON.parse(text);
           errorMessage = error.error || errorMessage;
         } catch (e) {
@@ -114,6 +126,7 @@ export function Studio() {
       setError(errorMessage);
     } finally {
       setIsGeneratingAudio(false);
+      setShowPublishConfirm(false);
     }
   };
 
@@ -122,10 +135,19 @@ export function Studio() {
   };
 
   const handlePublishConfirm = () => {
-    setShowPublishConfirm(false);
-    setPublishSuccessMessage('Content published successfully!');
-    setTimeout(() => setPublishSuccessMessage(null), 5000);
+    if (transcript) {
+      generateAudio(transcript, true);
+    }
   };
+
+  // Cleanup URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, []);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">

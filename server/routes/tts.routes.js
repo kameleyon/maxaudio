@@ -10,22 +10,11 @@ router.get('/test', async (req, res) => {
     const text = 'Hello! This is a test of the Text-to-Speech service.';
     const audioContent = await ttsService.generateAudio(text);
     
-    // Save test file
-    const tempDir = path.join(__dirname, '../temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    const filePath = path.join(tempDir, 'test.mp3');
-    fs.writeFileSync(filePath, audioContent, 'binary');
-    
-    res.json({
-      success: true,
-      message: 'TTS test successful',
-      file: 'test.mp3',
-      size: audioContent.length,
-      characters: text.length
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': audioContent.length
     });
+    res.send(audioContent);
   } catch (error) {
     console.error('TTS test failed:', error);
     res.status(500).json({ error: error.message });
@@ -58,45 +47,28 @@ router.get('/languages', async (req, res) => {
 // Generate audio
 router.post('/generate', async (req, res) => {
   try {
-    const { text, voice, language, pitch, speakingRate } = req.body;
+    const { text, voiceName, language, pitch, speakingRate, publish } = req.body;
 
     // Validate input
     if (!text) {
       return res.status(400).json({ error: 'Text is required' });
     }
 
-    // Validate text length
-    try {
-      ttsService.validateText(text);
-    } catch (error) {
-      return res.status(400).json({ error: error.message });
-    }
-
     // Generate audio
     const audioContent = await ttsService.generateAudio(text, {
-      voiceName: voice || 'en-US-Neural2-F',
+      voiceName: voiceName || 'en-US-Neural2-F',
       languageCode: language || 'en-US',
       pitch: pitch || 0,
-      speakingRate: speakingRate || 1.0
+      speakingRate: speakingRate || 1.0,
+      publish: publish || false
     });
 
-    // Save file
-    const tempDir = path.join(__dirname, '../temp');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-
-    const fileName = `tts-${Date.now()}.mp3`;
-    const filePath = path.join(tempDir, fileName);
-    fs.writeFileSync(filePath, audioContent, 'binary');
-
-    res.json({
-      success: true,
-      file: fileName,
-      url: `/temp/${fileName}`,
-      size: audioContent.length,
-      characters: text.length
+    // Send audio content directly
+    res.set({
+      'Content-Type': 'audio/mpeg',
+      'Content-Length': audioContent.length
     });
+    res.send(audioContent);
   } catch (error) {
     console.error('Error generating audio:', error);
     res.status(500).json({ error: error.message });
@@ -117,9 +89,33 @@ router.get('/voices/:name', async (req, res) => {
   }
 });
 
+// Get published audios
+router.get('/published', (req, res) => {
+  try {
+    const audioDir = path.join(__dirname, '../audios');
+    if (!fs.existsSync(audioDir)) {
+      return res.json([]);
+    }
+
+    const files = fs.readdirSync(audioDir)
+      .filter(file => file.endsWith('.mp3'))
+      .map(file => ({
+        name: file,
+        url: `/api/tts/audio/${file}`,
+        createdAt: fs.statSync(path.join(audioDir, file)).birthtime
+      }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    res.json(files);
+  } catch (error) {
+    console.error('Error getting published audios:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Serve audio files
 router.get('/audio/:file', (req, res) => {
-  const filePath = path.join(__dirname, '../temp', req.params.file);
+  const filePath = path.join(__dirname, '../audios', req.params.file);
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'Audio file not found' });
   }

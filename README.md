@@ -4,26 +4,22 @@
 1. [Overview](#overview)
 2. [Core Features](#core-features)
 3. [Technical Architecture](#technical-architecture)
-4. [Project Structure](#project-structure)
-5. [Setup & Installation](#setup--installation)
-6. [Development Guide](#development-guide)
-7. [Testing](#testing)
-8. [Deployment](#deployment)
-9. [API Documentation](#api-documentation)
-10. [Security](#security)
-11. [Monitoring & Analytics](#monitoring--analytics)
-12. [Contributing](#contributing)
-13. [Production Setup](#production-setup)
+4. [Setup & Installation](#setup--installation)
+5. [Development Guide](#development-guide)
+6. [API Documentation](#api-documentation)
+7. [Security](#security)
+8. [Production Setup](#production-setup)
 
 ## Overview
 
-MaxAudio is a sophisticated text-to-speech platform that combines advanced AI capabilities with intuitive voice customization features. It enables users to generate high-quality audio content with customizable voices, making it ideal for content creators, educators, and professionals.
+MaxAudio is a sophisticated text-to-speech platform that combines LLaMA 90B for content generation with Google Cloud TTS for high-quality voice synthesis. It enables users to generate natural, human-like audio content with advanced customization features.
 
 ### Vision
-To provide enterprise-grade text-to-speech capabilities with unmatched customization and quality, making audio content creation accessible and efficient.
+To provide enterprise-grade text-to-speech capabilities with unmatched natural speech synthesis and content generation, making professional audio content creation accessible and efficient.
 
 ### Key Differentiators
-- Advanced voice customization and cloning
+- LLaMA 90B integration for natural content generation
+- Advanced SSML implementation for human-like speech
 - Enterprise-grade security with JWT authentication
 - Comprehensive analytics and monitoring
 - Flexible subscription models
@@ -32,86 +28,88 @@ To provide enterprise-grade text-to-speech capabilities with unmatched customiza
 ## Core Features
 
 ### Authentication & Security
-- **JWT-based Authentication**
+- **Custom JWT Authentication**
   - Secure token-based authentication
   - Role-based access control (RBAC)
   - Token refresh mechanism
   - Secure password hashing
   - Session management
-  - Two-factor authentication (optional)
+
+### Content Generation
+- **LLaMA 90B Integration**
+  - Natural language content generation
+  - Genre-specific content (e.g., Comedy, Storytelling)
+  - Tone control (e.g., Sarcastic, Professional)
+  - 15-minute content generation capability
+  - Dynamic prompt templates
 
 ### Text-to-Speech Engine
-- **Voice Synthesis**
-  - Integration with Google Cloud TTS
+- **Advanced Google Cloud TTS**
   - Neural network-based voice generation
-  - Support for multiple languages and accents
-  - Custom voice model training
-  - Real-time voice preview
-  - Batch processing capabilities
+  - Comprehensive SSML support
+  - Multiple languages and accents
+  - Voice customization
+  - Chunked audio processing
+  - Real-time preview
 
 ### Voice Customization
-- Pitch adjustment (-20 to +20)
-- Speed control (0.25x to 4x)
-- Emphasis markers
-- Pronunciation dictionary
-- SSML support
-- Custom voice cloning
+- **SSML Features**
+  - Advanced pause control
+  - Dynamic emphasis
+  - Intonation control
+  - Speed and pitch adjustment
+  - Emotional expressions
+  - Natural transitions
 
 ### Studio Environment
 - **Audio Workspace**
   - Professional editing interface
-  - Waveform visualization
-  - Multi-track support
-  - Real-time effects preview
-  - Project saving and versioning
-  - Export in multiple formats (MP3, WAV, OGG)
+  - Content preview
+  - SSML visualization
+  - Project saving
+  - Multi-format export (MP3, WAV)
+  - File management system
 
 ## Setup & Installation
 
 ### Prerequisites
 - Node.js (v18 or higher)
 - MongoDB
-- Redis (optional, for caching)
-- Stripe account for payments
+- Google Cloud account with TTS API enabled
+- LLaMA 90B access
 
 ### Environment Variables
-Create a `.env` file in the root directory with the following variables:
+Create a `.env` file in the root directory:
 
 ```env
 # Server Configuration
-PORT=3000
+PORT=5001
 NODE_ENV=development
-MONGODB_URI=mongodb://localhost:27017/maxaudio
+DATABASE_URL=your_mongodb_url
+DATABASE_NAME=your_db_name
+
+# Google Cloud TTS
+GOOGLE_PROJECT_ID=your_project_id
+GOOGLE_CLIENT_EMAIL=your_client_email
+GOOGLE_PRIVATE_KEY=your_private_key
 
 # JWT Configuration
-JWT_SECRET=your_jwt_secret_key
-JWT_EXPIRES_IN=24h
-JWT_REFRESH_SECRET=your_refresh_token_secret
-JWT_REFRESH_EXPIRES_IN=7d
+JWT_SECRET=your_jwt_secret
 
-# Client URLs
-CLIENT_URL=http://localhost:3000
-PRODUCTION_CLIENT_URL=https://your-production-url.com
+# Security
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
+SESSION_SECRET=your_session_secret
+COOKIE_SECRET=your_cookie_secret
 
 # Stripe Configuration
 STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_stripe_webhook_secret
-
-# Storage Configuration
-STORAGE_PROVIDER=local # or 's3', 'gcs'
-STORAGE_PATH=./uploads
-
-# Optional Features
-ENABLE_2FA=false
-ENABLE_CUSTOM_VOICES=true
-ENABLE_ANALYTICS=true
-ENABLE_PUSH_NOTIFICATIONS=false
+STRIPE_WEBHOOK_SECRET=your_webhook_secret
 ```
 
 ### Installation Steps
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/maxaudio.git
+   git clone https://github.com/kameleyon/maxaudio.git
    cd maxaudio
    ```
 
@@ -120,13 +118,13 @@ ENABLE_PUSH_NOTIFICATIONS=false
    npm install
    ```
 
-3. Set up the database:
+3. Start the development server:
    ```bash
-   npm run setup:db
-   ```
+   # Terminal 1 - Backend
+   cd server
+   node index.js
 
-4. Start the development server:
-   ```bash
+   # Terminal 2 - Frontend
    npm run dev
    ```
 
@@ -141,81 +139,50 @@ ENABLE_PUSH_NOTIFICATIONS=false
 
 ### Security Features
 - JWT-based authentication
-- Secure password hashing with bcrypt
+- Secure password hashing
 - CORS protection
 - Rate limiting
-- XSS protection
-- CSRF protection
 - Input validation
 - Request sanitization
 
-### API Authentication
-All API requests to protected routes must include the JWT token in the Authorization header:
+## File Management
 
-```http
-Authorization: Bearer <your_jwt_token>
-```
+### Audio Storage
+- Generated audio files are stored in `server/audios/`
+- Files are named with timestamp: `audio_{timestamp}.mp3`
+- Automatic cleanup of temporary files
+- Support for long-form audio content
 
-## API Documentation
+### File Access
+- Secure file serving through authenticated routes
+- Support for streaming large audio files
+- Automatic file type detection
+- Content-Type headers for proper playback
 
-### Authentication Endpoints
+## Content Generation
 
-#### Register User
-```http
-POST /api/auth/register
-Content-Type: application/json
+### LLaMA 90B Integration
+- Natural language generation
+- Support for multiple genres
+- Tone control and customization
+- 15-minute content capability
+- Chunked processing for long content
 
-{
-  "email": "user@example.com",
-  "password": "securepassword",
-  "username": "username"
-}
-```
-
-#### Login
-```http
-POST /api/auth/login
-Content-Type: application/json
-
-{
-  "email": "user@example.com",
-  "password": "securepassword"
-}
-```
-
-#### Refresh Token
-```http
-POST /api/auth/refresh
-Content-Type: application/json
-
-{
-  "refreshToken": "your_refresh_token"
-}
-```
-
-#### Logout
-```http
-POST /api/auth/logout
-Authorization: Bearer <your_jwt_token>
-```
-
-## Error Handling
-
-### Authentication Errors
-- 401: Unauthorized - Invalid or expired token
-- 403: Forbidden - Insufficient permissions
-- 422: Validation Error - Invalid input data
-
-### Response Format
-```json
-{
-  "success": false,
-  "error": {
-    "code": "AUTH_ERROR",
-    "message": "Token has expired",
-    "details": {}
-  }
-}
+### SSML Implementation
+```xml
+<speak>
+  <p>
+    Welcome! <break time="500ms"/> 
+    Let me tell you a story... 
+    <prosody rate="slow" pitch="+2st">
+      It was a dark and stormy night
+    </prosody>
+  </p>
+  <break time="1s"/>
+  <emphasis level="strong">
+    But then, everything changed!
+  </emphasis>
+</speak>
 ```
 
 ## Contributing
@@ -225,12 +192,11 @@ Please read our [Contributing Guide](CONTRIBUTING.md) for details on our code of
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
-
 - [Google Cloud TTS](https://cloud.google.com/text-to-speech) for voice synthesis
+- [LLaMA 90B](https://ai.meta.com/llama/) for content generation
 - [Stripe](https://stripe.com) for payment processing
-- [MongoDB Atlas](https://www.mongodb.com/cloud/atlas) for database hosting
+- [MongoDB](https://www.mongodb.com) for database
 - All contributors and maintainers
-
 ## Support & Community
 
 ### Documentation
