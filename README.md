@@ -12,14 +12,22 @@
 
 ## Overview
 
-AudioMax is a sophisticated text-to-speech platform that combines Google Cloud TTS for high-quality voice synthesis with open-source TTS engines (Coqui YourTTS and Piper) for enhanced flexibility and offline capabilities. It enables users to generate natural human-like audio content with advanced customization features and emotion control.
+AudioMax is a sophisticated text-to-speech platform that combines multiple TTS engines for maximum flexibility and reliability:
+
+1. Google Cloud TTS for premium voice quality
+2. Coqui YourTTS for open-source multilingual support
+3. Piper TTS for offline processing capability
+
+This multi-engine approach ensures high availability and allows for fallback options while providing users with a choice of voice synthesis technologies.
 
 ### Vision
 To provide enterprise-grade text-to-speech capabilities with unmatched natural speech synthesis and content generation, making professional audio content creation accessible and efficient.
 
 ### Key Differentiators
-- Google Cloud TTS integration for premium voice quality
-- Open-source TTS engines with fallback support
+- Multi-engine TTS architecture:
+  * Google Cloud TTS for premium quality
+  * Open-source engines (Coqui, Piper) for flexibility
+  * Automatic fallback system
 - Advanced SSML implementation for human-like speech
 - Emotion control and natural voice enhancement
 - Enterprise-grade security with JWT authentication
@@ -30,7 +38,7 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
 ## Core Features
 
 ### Voice Synthesis
-- **Primary Engine: Google Cloud TTS**
+- **Google Cloud TTS**
   - Neural network-based voice generation
   - Comprehensive SSML support
   - Multiple languages and accents
@@ -38,14 +46,14 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
   - Chunked audio processing
   - Real-time preview
 
-- **Secondary Engine: Coqui YourTTS**
+- **Coqui YourTTS**
   - Multi-speaker, multi-lingual support
   - Natural-sounding speech
   - Emotion control capabilities
   - Voice cloning features
   - Offline processing capability
 
-- **Backup Engine: Piper TTS**
+- **Piper TTS**
   - Fast and efficient processing
   - Offline capability
   - SSML support
@@ -72,13 +80,6 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
   - Secure password hashing
   - Session management
 
-### Content Generation
-- **Text Processing**
-  - Natural language analysis
-  - Emotion detection
-  - SSML generation
-  - Prosody control
-
 ### Studio Environment
 - **Audio Workspace**
   - Professional editing interface
@@ -100,7 +101,7 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
 
 ### Backend
 - Express.js server
-- MongoDB database
+- MongoDB Atlas database
 - Google Cloud TTS integration
 - Python TTS services
 - Node.js service layer
@@ -120,37 +121,12 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
 ### Prerequisites
 - Node.js (v16 or higher)
 - Python 3.7 or higher
-- MongoDB
-- npm 6 or higher
+- MongoDB Atlas account
 - Google Cloud account with TTS API enabled
+- npm 6 or higher
 
 ### Environment Variables
-Create a `.env` file in the root directory:
-
-```env
-# Server Configuration
-PORT=5001
-NODE_ENV=development
-DATABASE_URL=your_mongodb_url
-DATABASE_NAME=your_db_name
-
-# Google Cloud TTS
-GOOGLE_PROJECT_ID=your_project_id
-GOOGLE_CLIENT_EMAIL=your_client_email
-GOOGLE_PRIVATE_KEY=your_private_key
-
-# JWT Configuration
-JWT_SECRET=your_jwt_secret
-
-# Security
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174
-SESSION_SECRET=your_session_secret
-COOKIE_SECRET=your_cookie_secret
-
-# Stripe Configuration
-STRIPE_SECRET_KEY=your_stripe_secret_key
-STRIPE_WEBHOOK_SECRET=your_webhook_secret
-```
+Create a `.env` file in the root directory with the necessary configuration (see .env.example for template).
 
 ### Installation Steps
 1. Clone the repository:
@@ -269,6 +245,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Google Cloud TTS](https://cloud.google.com/text-to-speech) for premium voice synthesis
 - [Coqui TTS](https://github.com/coqui-ai/TTS) for open-source voice synthesis
 - [Piper TTS](https://github.com/rhasspy/piper) for backup voice synthesis
-- [MongoDB](https://www.mongodb.com) for database
+- [MongoDB Atlas](https://www.mongodb.com/atlas/database) for database
 - [Stripe](https://stripe.com) for payment processing
 - All contributors and maintainers
