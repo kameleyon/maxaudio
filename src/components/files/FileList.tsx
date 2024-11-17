@@ -6,10 +6,12 @@ import {
   Calendar,
   Tag,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  Plus,
+  X
 } from 'lucide-react';
-import { v4 as uuidv4 } from 'uuid';
 import { FileActionsMenu } from './FileActionsMenu';
+import { AudioPlayer } from './AudioPlayer';
 import { fileManagementService, type FileMetadata, type FileSearchOptions } from '../../services/file-management.service';
 
 interface FileListProps {
@@ -18,20 +20,17 @@ interface FileListProps {
   showFavorites: boolean;
 }
 
-interface UploadProgress {
-  [key: string]: number;
-}
-
 export function FileList({ searchQuery, activeFilter, showFavorites }: FileListProps) {
   const [files, setFiles] = useState<FileMetadata[]>([]);
   const [activeFile, setActiveFile] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [uploadProgress, setUploadProgress] = useState<UploadProgress>({});
   const [sortBy, setSortBy] = useState<'date' | 'title' | 'size'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [showTagInput, setShowTagInput] = useState(false);
   const [dateRange, setDateRange] = useState<{
     start?: Date;
     end?: Date;
@@ -68,58 +67,6 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const uploadId = uuidv4();
-    try {
-      setError(null);
-      setUploadProgress(prev => ({ ...prev, [uploadId]: 0 }));
-
-      await fileManagementService.uploadFile(
-        file,
-        {
-          title: file.name,
-          category: 'Uncategorized',
-          tags: []
-        },
-        (progress) => {
-          setUploadProgress(prev => ({ ...prev, [uploadId]: progress }));
-        }
-      );
-
-      // Refresh file list
-      loadFiles();
-    } catch (err) {
-      console.error('Error uploading file:', err);
-      setError('Failed to upload file. Please try again.');
-    } finally {
-      setUploadProgress(prev => {
-        const { [uploadId]: _, ...rest } = prev;
-        return rest;
-      });
-    }
-  };
-
-  const handleDownload = async (fileId: string) => {
-    try {
-      setError(null);
-      const blob = await fileManagementService.downloadFile(fileId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = files.find(f => f.id === fileId)?.title || 'download';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Error downloading file:', err);
-      setError('Failed to download file. Please try again.');
-    }
-  };
-
   const handleDelete = async (fileId: string) => {
     try {
       setError(null);
@@ -132,19 +79,57 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
   };
 
   const handleToggleFavorite = async (fileId: string) => {
-    const file = files.find(f => f.id === fileId);
-    if (!file) return;
-
     try {
       setError(null);
-      await fileManagementService.updateFileMetadata(fileId, {
-        ...file,
-        favorite: !file.favorite
-      });
+      await fileManagementService.toggleFavorite(fileId);
       loadFiles();
     } catch (err) {
       console.error('Error updating favorite status:', err);
       setError('Failed to update favorite status. Please try again.');
+    }
+  };
+
+  const handleAddTag = async (fileId: string) => {
+    if (!newTag.trim()) return;
+
+    try {
+      setError(null);
+      await fileManagementService.addTag(fileId, newTag.trim());
+      setNewTag('');
+      setShowTagInput(false);
+      loadFiles();
+    } catch (err) {
+      console.error('Error adding tag:', err);
+      setError('Failed to add tag. Please try again.');
+    }
+  };
+
+  const handleRemoveTag = async (fileId: string, tag: string) => {
+    try {
+      setError(null);
+      await fileManagementService.removeTag(fileId, tag);
+      loadFiles();
+    } catch (err) {
+      console.error('Error removing tag:', err);
+      setError('Failed to remove tag. Please try again.');
+    }
+  };
+
+  const handleDownload = async (fileId: string, filename: string) => {
+    try {
+      setError(null);
+      const blob = await fileManagementService.downloadFile(fileId, filename);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Error downloading file:', err);
+      setError('Failed to download file. Please try again.');
     }
   };
 
@@ -163,10 +148,49 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
         <div className="flex items-center gap-4">
           {/* Tags Filter */}
           <div className="relative">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors">
+            <button 
+              onClick={() => setShowTagInput(!showTagInput)}
+              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+            >
               <Tag className="w-4 h-4" />
               <span>Tags</span>
             </button>
+            {showTagInput && (
+              <div className="absolute top-full mt-2 p-2 bg-gray-800 rounded-lg shadow-lg z-10">
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    placeholder="Add tag..."
+                    className="px-2 py-1 bg-white/5 border border-white/10 rounded"
+                  />
+                  <button
+                    onClick={() => handleAddTag(activeFile!)}
+                    disabled={!newTag.trim() || !activeFile}
+                    className="p-1 bg-primary hover:bg-primary/80 rounded disabled:opacity-50"
+                  >
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {selectedTags.map(tag => (
+                    <span
+                      key={tag}
+                      className="flex items-center gap-1 px-2 py-1 bg-white/10 rounded-full text-sm"
+                    >
+                      {tag}
+                      <button
+                        onClick={() => setSelectedTags(tags => tags.filter(t => t !== tag))}
+                        className="p-0.5 hover:bg-white/10 rounded-full"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Date Range Filter */}
@@ -197,20 +221,6 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
             {sortOrder === 'asc' ? '↑' : '↓'}
           </button>
         </div>
-      </div>
-
-      {/* Upload Button */}
-      <div className="flex justify-end">
-        <label className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/80 rounded-lg transition-colors cursor-pointer">
-          <Upload className="w-4 h-4" />
-          <span>Upload File</span>
-          <input
-            type="file"
-            accept="audio/*"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-        </label>
       </div>
 
       {/* File List */}
@@ -245,13 +255,19 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
                 <div className="text-white/80">
                   {(file.size / (1024 * 1024)).toFixed(2)} MB
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {file.tags.map(tag => (
                     <span
                       key={tag}
-                      className="px-2 py-1 text-xs bg-white/10 rounded-full text-white/80"
+                      className="group flex items-center gap-1 px-2 py-1 bg-white/10 rounded-full text-sm text-white/80"
                     >
                       {tag}
+                      <button
+                        onClick={() => handleRemoveTag(file.id, tag)}
+                        className="hidden group-hover:block p-0.5 hover:bg-white/10 rounded-full"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
                     </span>
                   ))}
                 </div>
@@ -268,7 +284,7 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
                       file={file}
                       isPlaying={isPlaying === file.id}
                       onPlay={() => setIsPlaying(isPlaying === file.id ? null : file.id)}
-                      onDownload={() => handleDownload(file.id)}
+                      onDownload={() => handleDownload(file.id, file.originalName)}
                       onDelete={() => handleDelete(file.id)}
                       onFavorite={() => handleToggleFavorite(file.id)}
                       onClose={() => setActiveFile(null)}
@@ -281,20 +297,14 @@ export function FileList({ searchQuery, activeFilter, showFavorites }: FileListP
         </div>
       </div>
 
-      {/* Upload Progress */}
-      {Object.entries(uploadProgress).map(([id, progress]) => (
-        <div key={id} className="p-4 bg-white/5 rounded-lg">
-          <div className="flex justify-between text-sm text-white/60 mb-2">
-            <span>Uploading...</span>
-            <span>{Math.round(progress)}%</span>
-          </div>
-          <div className="h-2 bg-white/10 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${progress}%` }}
-            />
-          </div>
-        </div>
+      {/* Audio Players */}
+      {files.map(file => (
+        <AudioPlayer
+          key={file.id}
+          url={file.url!}
+          isPlaying={isPlaying === file.id}
+          onEnded={() => setIsPlaying(null)}
+        />
       ))}
 
       {/* Error Display */}

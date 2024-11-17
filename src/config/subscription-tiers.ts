@@ -1,162 +1,59 @@
-export interface SubscriptionTier {
-  id: string;
-  name: string;
-  monthlyPrice: number;
-  yearlyPrice: number;
-  stripePriceId: string;
-  stripeYearlyPriceId: string;
-  features: string[];
-  limits: {
-    charactersPerMonth: number;
-    requestsPerMinute: number;
-    voiceClones: number;
-  };
-  addons: {
-    tokens: {
-      available: boolean;
-      price: number;
-      amount: number;
-    };
-    voiceClones: {
-      available: boolean;
-      price: number;
-      maxAdditional: number;
-    };
-    priority: string;
-  };
-}
-
-export const subscriptionTiers: SubscriptionTier[] = [
-  {
-    id: 'free',
-    name: 'Free Trial',
-    monthlyPrice: 0,
-    yearlyPrice: 0,
-    stripePriceId: '',
-    stripeYearlyPriceId: '',
-    features: [
-      '3 days full Professional access',
-      '3 free generations (3 min each)',
-      'Standard voices only',
-      'Basic voice collection access',
-      'No commercial usage rights'
-    ],
-    limits: {
-      charactersPerMonth: 200000,
-      requestsPerMinute: 5,
-      voiceClones: 0
-    },
-    addons: {
-      tokens: {
-        available: true,
-        price: 9.99,
-        amount: 500000
-      },
-      voiceClones: {
-        available: false,
-        price: 0,
-        maxAdditional: 0
-      },
-      priority: 'Best effort'
+export const subscriptionTiers = {
+  free: {
+    name: 'Free',
+    price: 0,
+    features: {
+      charactersPerMonth: 50000,
+      maxAudioLength: 10, // minutes
+      concurrentProjects: 2,
+      voiceOptions: ['Google TTS Basic Voices'],
+      downloadFormats: ['MP3'],
+      support: 'Community',
     }
   },
-  {
-    id: 'professional',
-    name: 'Professional',
-    monthlyPrice: 39.99,
-    yearlyPrice: 383.90,
-    stripePriceId: 'price_1QJciwGTXKQOsgznGHYwmY9o',
-    stripeYearlyPriceId: 'price_1QJcixGTXKQOsgzn5K0IlyR0',
-    features: [
-      'WaveNet & Neural2 voices',
-      '3 custom voice clones',
-      'Basic Analytics',
-      'Limited commercial usage',
-      'Standard support'
-    ],
-    limits: {
-      charactersPerMonth: 1000000,
-      requestsPerMinute: 15,
-      voiceClones: 3
-    },
-    addons: {
-      tokens: {
-        available: true,
-        price: 4.99,
-        amount: 500000
-      },
-      voiceClones: {
-        available: true,
-        price: 19.99,
-        maxAdditional: 7
-      },
-      priority: 'Standard priority'
+  pro: {
+    name: 'Pro',
+    price: 19.99,
+    features: {
+      charactersPerMonth: 500000,
+      maxAudioLength: 30, // minutes
+      concurrentProjects: 10,
+      voiceOptions: [
+        'Google TTS Premium Voices',
+        'ElevenLabs Natural Voices',
+        'Emotion Analysis'
+      ],
+      downloadFormats: ['MP3', 'WAV', 'OGG'],
+      support: 'Email Support',
+      additionalFeatures: [
+        'Voice Customization',
+        'Batch Processing',
+        'Priority Queue'
+      ]
     }
   },
-  {
-    id: 'premium',
-    name: 'Premium',
-    monthlyPrice: 79.99,
-    yearlyPrice: 767.90,
-    stripePriceId: 'price_1QJcixGTXKQOsgzntFkccdTg',
-    stripeYearlyPriceId: 'price_1QJcixGTXKQOsgznqRPzlJJX',
-    features: [
-      'All voice collections',
-      '5 custom voice clones',
-      'Advanced Analytics',
-      'Full commercial usage rights',
-      'Priority 24/7 support'
-    ],
-    limits: {
-      charactersPerMonth: 2000000,
-      requestsPerMinute: 30,
-      voiceClones: 5
-    },
-    addons: {
-      tokens: {
-        available: true,
-        price: 4.99,
-        amount: 500000
-      },
-      voiceClones: {
-        available: true,
-        price: 19.99,
-        maxAdditional: 15
-      },
-      priority: 'High priority'
-    }
-  },
-  {
-    id: 'enterprise',
+  enterprise: {
     name: 'Enterprise',
-    monthlyPrice: 149.99,
-    yearlyPrice: 1439.90,
-    stripePriceId: 'price_1QJcixGTXKQOsgznqRPzlJJX_enterprise',
-    stripeYearlyPriceId: 'price_1QJcixGTXKQOsgznqRPzlJJX_enterprise_yearly',
-    features: [
-      'All voices + exclusive access',
-      '10 custom voice clones',
-      'Custom Analytics Dashboard',
-      'Enterprise commercial rights',
-      'Dedicated account manager'
-    ],
-    limits: {
-      charactersPerMonth: 5000000,
-      requestsPerMinute: 50,
-      voiceClones: 10
-    },
-    addons: {
-      tokens: {
-        available: true,
-        price: 4.99,
-        amount: 1000000
-      },
-      voiceClones: {
-        available: true,
-        price: 19.99,
-        maxAdditional: 999
-      },
-      priority: 'Highest priority'
+    price: 99.99,
+    features: {
+      charactersPerMonth: 'Unlimited',
+      maxAudioLength: 120, // minutes
+      concurrentProjects: 'Unlimited',
+      voiceOptions: [
+        'All Pro Features',
+        'Custom Voice Training',
+        'Advanced Emotion Processing',
+        'Azure Neural Voices'
+      ],
+      downloadFormats: ['MP3', 'WAV', 'OGG', 'FLAC'],
+      support: '24/7 Priority Support',
+      additionalFeatures: [
+        'All Pro Features',
+        'API Access',
+        'Custom Integration',
+        'SLA Guarantee',
+        'Dedicated Account Manager'
+      ]
     }
   }
-];
+};
