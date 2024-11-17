@@ -7,7 +7,10 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies
 node_modules
+package-lock.json
+server/package-lock.json
 dist
 dist-ssr
 *.local
@@ -45,11 +48,13 @@ wheels/
 .installed.cfg
 *.egg
 server/venv39/
+server/temp/
 
-# Environment variables
+# Environment variables and credentials
 .env
 .env.local
 .env.*.local
+server/google-credentials.json
 
 # Audio files
 server/audios/*.mp3
