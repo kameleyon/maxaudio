@@ -56,53 +56,35 @@ class TTSService {
    * Convert text to advanced SSML with natural speech enhancements
    */
   convertToSSML(text) {
+    // Clean and prepare text
+    text = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+
     // Add natural speech markers and emotional cues
     text = text
       // Add natural pauses with varying lengths
       .replace(/([.!?])\s+/g, '$1<break time="750ms"/>')
       .replace(/([,;])\s+/g, '$1<break time="500ms"/>')
       .replace(/\n\n+/g, '<break time="1s"/>')
-      .replace(/\.\.\./g, '<break time="1s"/>hmm<break time="500ms"/>')
-
-      // Add emotional expressions
-      .replace(/\(happy\)/gi, '<prosody rate="110%" pitch="+2st">$1</prosody>')
-      .replace(/\(sad\)/gi, '<prosody rate="90%" pitch="-2st">$1</prosody>')
-      .replace(/\(excited\)/gi, '<prosody rate="120%" pitch="+3st">$1</prosody>')
-      .replace(/\(calm\)/gi, '<prosody rate="85%" pitch="-1st">$1</prosody>')
-      .replace(/\(thoughtful\)/gi, '<prosody rate="90%">$1</prosody>')
 
       // Add emphasis variations
       .replace(/\*([^*]+)\*/g, '<emphasis level="moderate">$1</emphasis>')
       .replace(/\*\*([^*]+)\*\*/g, '<emphasis level="strong">$1</emphasis>')
-
-      // Add natural interjections
-      .replace(/\(laugh\)/gi, '<break time="200ms"/>haha<break time="500ms"/>')
-      .replace(/\(agree\)/gi, '<break time="200ms"/>uh-huh<break time="500ms"/>')
-      .replace(/\(think\)/gi, '<break time="500ms"/>hmm<break time="500ms"/>')
 
       // Add prosody variations for different parts of speech
       .replace(/\b(but|however|although)\b/gi, '<prosody rate="95%">$1</prosody>')
       .replace(/\b(wow|amazing|incredible)\b/gi, '<prosody pitch="+2st">$1</prosody>')
       .replace(/\b(finally|lastly|in conclusion)\b/gi, '<prosody rate="90%">$1</prosody>')
 
-      // Add breathing effects for natural pauses
-      .replace(/\(pause\)/gi, '<break time="1s"/><break strength="x-weak"/>')
-      .replace(/\(long pause\)/gi, '<break time="2s"/><break strength="weak"/>')
+      // Add voice variations for questions
+      .replace(/([^.!?]+\?)/g, '<prosody pitch="+1st" rate="95%">$1</prosody>');
 
-      // Add voice variations
-      .replace(/\(whisper\)(.*?)\(\/whisper\)/g, '<prosody volume="x-soft" rate="90%">$1</prosody>')
-      .replace(/\(loud\)(.*?)\(\/loud\)/g, '<prosody volume="x-loud" rate="110%">$1</prosody>')
-      .replace(/\(soft\)(.*?)\(\/soft\)/g, '<prosody volume="soft" rate="95%">$1</prosody>')
-
-      // Add emphasis for questions and exclamations
-      .replace(/([^.!?]+\?)/g, '<prosody pitch="+1st" rate="95%">$1</prosody>')
-      .replace(/([^.!?]+!)/g, '<prosody pitch="+2st" rate="110%">$1</prosody>')
-
-      // Clean up any remaining parenthetical directions
-      .replace(/\([^)]+\)/g, '');
-
-    // Wrap in speak tags
-    return `<speak>${text}</speak>`;
+    // Wrap in speak tags with proper XML namespace
+    return `<speak xmlns="http://www.w3.org/2001/10/synthesis" version="1.0">${text}</speak>`;
   }
 
   /**

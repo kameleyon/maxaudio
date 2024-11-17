@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const openSourceTTS = require('../services/opensource-tts.service');
+const googleTTS = require('../services/tts.service');
 const { requireAuth } = require('../middleware/auth');
 
-// Generate audio
+// Generate audio (protected)
 router.post('/generate', requireAuth, async (req, res) => {
   try {
     const { 
@@ -28,15 +29,47 @@ router.post('/generate', requireAuth, async (req, res) => {
       publish
     });
 
-    // Generate audio using open source TTS
-    const audioContent = await openSourceTTS.generateSpeech(text, {
-      language,
-      speaker: voice,
-      pitch,
-      speakingRate,
-      publish,
-      userId: req.user.userId
-    });
+    // Determine which service to use based on voice ID prefix
+    let audioContent;
+    if (voice.startsWith('en-')) {
+      // Use Google TTS for voices starting with 'en-'
+      audioContent = await googleTTS.generateAudio(text, {
+        language,
+        voiceName: voice,
+        pitch,
+        speakingRate,
+        publish,
+        userId: req.user.userId
+      });
+    } else if (voice.startsWith('fastpitch')) {
+      // Use FastPitch for voices starting with 'fastpitch'
+      audioContent = await openSourceTTS.generateWithFastPitch(text, {
+        pitch,
+        speakingRate,
+        publish,
+        userId: req.user.userId
+      });
+    } else if (voice.startsWith('yourtts')) {
+      // Use YourTTS for voices starting with 'yourtts'
+      audioContent = await openSourceTTS.generateWithCoqui(text, {
+        speaker: voice.split('-')[1] || '0', // Extract speaker ID from voice name
+        language,
+        pitch,
+        speakingRate,
+        publish,
+        userId: req.user.userId
+      });
+    } else {
+      // Default to Google TTS
+      audioContent = await googleTTS.generateAudio(text, {
+        language,
+        voiceName: 'en-US-Neural2-D',
+        pitch,
+        speakingRate,
+        publish,
+        userId: req.user.userId
+      });
+    }
 
     res.send(audioContent);
   } catch (error) {
@@ -45,18 +78,71 @@ router.post('/generate', requireAuth, async (req, res) => {
   }
 });
 
-// Get available voices
-router.get('/voices', requireAuth, async (req, res) => {
+// Get available voices (public)
+router.get('/voices', async (req, res) => {
   try {
-    const voices = await openSourceTTS.getVoices();
-    res.json(voices);
+    // Get voices from both services
+    const [googleVoices, openSourceVoices] = await Promise.all([
+      googleTTS.getVoices(),
+      openSourceTTS.getVoices()
+    ]);
+
+    // Format Google voices to match the expected structure
+    const formattedGoogleVoices = googleVoices
+      .filter(voice => voice.languageCodes[0].startsWith('en-')) // Only include English voices
+      .map(voice => ({
+        id: voice.name,
+        name: `${voice.name.split('-').pop()} (${voice.languageCodes[0].split('-')[1]})`,
+        flag: voice.languageCodes[0].startsWith('en-GB') ? '🇬🇧' : '🇺🇸',
+        gender: voice.ssmlGender.charAt(0) + voice.ssmlGender.slice(1).toLowerCase(),
+        type: 'Google Neural'
+      }));
+
+    // Add FastPitch voices
+    const fastPitchVoices = [
+      {
+        id: 'fastpitch-ljspeech',
+        name: 'FastPitch (LJSpeech)',
+        flag: '🤖',
+        gender: 'Female',
+        type: 'FastPitch'
+      }
+    ];
+
+    // Add YourTTS voices
+    const yourTTSVoices = [
+      {
+        id: 'yourtts-0',
+        name: 'YourTTS Voice 1',
+        flag: '🎙️',
+        gender: 'Female',
+        type: 'YourTTS'
+      },
+      {
+        id: 'yourtts-1',
+        name: 'YourTTS Voice 2',
+        flag: '🎙️',
+        gender: 'Male',
+        type: 'YourTTS'
+      }
+    ];
+
+    // Combine all voices
+    const allVoices = [
+      ...formattedGoogleVoices,
+      ...fastPitchVoices,
+      ...yourTTSVoices,
+      ...openSourceVoices
+    ];
+
+    res.json(allVoices);
   } catch (error) {
     console.error('Error getting voices:', error);
     res.status(500).json({ error: 'Failed to get voices' });
   }
 });
 
-// Clean up temporary files
+// Clean up temporary files (protected)
 router.post('/cleanup', requireAuth, async (req, res) => {
   try {
     await openSourceTTS.cleanup();

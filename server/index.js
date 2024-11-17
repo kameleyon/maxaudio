@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: __dirname + '/.env' });
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -12,7 +12,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // CORS configuration with credentials
 const corsOptions = {
-  origin: isDevelopment 
+  origin: isDevelopment
     ? ['http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5174', 'http://127.0.0.1:5174']
     : [process.env.PRODUCTION_CLIENT_URL],
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -51,7 +51,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ 
+  res.json({
     status: 'healthy',
     timestamp: new Date(),
     environment: process.env.NODE_ENV
@@ -120,7 +120,7 @@ app.use((err, req, res, next) => {
   }
 
   // Handle all other errors
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     error: {
       message: isDevelopment ? err.message : 'Internal Server Error',
       ...(isDevelopment && { stack: err.stack })

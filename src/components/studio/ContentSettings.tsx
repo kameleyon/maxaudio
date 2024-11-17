@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Toggle } from '../ui/Toggle';
+import api from '../../services/api';
 
 export interface ContentSettingsType {
   category: string;
@@ -22,6 +23,10 @@ interface VoiceOption {
 }
 
 export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
   const categories = [
     'Podcast', 'TED Talk', 'News', 'Narrative', 'Class',
     'Advertisement', 'Comedy', 'Motivational', 'Meditation',
@@ -33,56 +38,29 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
     'Angry', 'Sad', 'Excited', 'Calm', 'Detached'
   ];
 
-  const voiceOptions: Record<'library' | 'clone', VoiceOption[]> = {
-    library: [
-      // US News Voices
-      { id: 'en-US-News-K', name: 'Jackson', flag: '🇺🇸', gender: 'Male', type: 'News' },
-      { id: 'en-US-News-L', name: 'Emma', flag: '🇺🇸', gender: 'Female', type: 'News' },
-      { id: 'en-US-News-M', name: 'Noah', flag: '🇺🇸', gender: 'Male', type: 'News' },
-      
-      // GB News Voices
-      { id: 'en-GB-News-K', name: 'William', flag: '🇬🇧', gender: 'Male', type: 'News' },
-      { id: 'en-GB-News-L', name: 'Sophie', flag: '🇬🇧', gender: 'Female', type: 'News' },
-      { id: 'en-GB-News-M', name: 'James', flag: '🇬🇧', gender: 'Male', type: 'News' },
-      
-      // US Studio Voices
-      { id: 'en-US-Studio-M', name: 'Ethan', flag: '🇺🇸', gender: 'Male', type: 'Studio' },
-      { id: 'en-US-Studio-O', name: 'Isabella', flag: '🇺🇸', gender: 'Female', type: 'Studio' },
-      
-      // GB Studio Voices
-      { id: 'en-GB-Studio-M', name: 'Oliver', flag: '🇬🇧', gender: 'Male', type: 'Studio' },
-      { id: 'en-GB-Studio-O', name: 'Charlotte', flag: '🇬🇧', gender: 'Female', type: 'Studio' },
-      
-      // US Neural Voices
-      { id: 'en-US-Neural2-A', name: 'Zander', flag: '🇺🇸', gender: 'Male', type: 'Neural' },
-      { id: 'en-US-Neural2-C', name: 'Luna', flag: '🇺🇸', gender: 'Female', type: 'Neural' },
-      { id: 'en-US-Neural2-D', name: 'Kai', flag: '🇺🇸', gender: 'Male', type: 'Neural' },
-      { id: 'en-US-Neural2-F', name: 'Maya', flag: '🇺🇸', gender: 'Female', type: 'Neural' },
-      { id: 'en-US-Neural2-H', name: 'Sage', flag: '🇺🇸', gender: 'Female', type: 'Neural' },
-      
-      // GB Neural Voices
-      { id: 'en-GB-Neural2-A', name: 'Lyra', flag: '🇬🇧', gender: 'Female', type: 'Neural' },
-      { id: 'en-GB-Neural2-B', name: 'Finn', flag: '🇬🇧', gender: 'Male', type: 'Neural' },
-      { id: 'en-GB-Neural2-D', name: 'Hugo', flag: '🇬🇧', gender: 'Male', type: 'Neural' },
-      
-      // US Synthesis Voices
-      { id: 'en-US-Standard-A', name: 'Orion', flag: '🇺🇸', gender: 'Male', type: 'Synthesis' },
-      { id: 'en-US-Standard-B', name: 'Jasper', flag: '🇺🇸', gender: 'Male', type: 'Synthesis' },
-      { id: 'en-US-Standard-C', name: 'Aurora', flag: '🇺🇸', gender: 'Female', type: 'Synthesis' },
-      { id: 'en-US-Standard-E', name: 'Iris', flag: '🇺🇸', gender: 'Female', type: 'Synthesis' },
-      
-      // GB Synthesis Voices
-      { id: 'en-GB-Standard-A', name: 'Isla', flag: '🇬🇧', gender: 'Female', type: 'Synthesis' },
-      { id: 'en-GB-Standard-B', name: 'Felix', flag: '🇬🇧', gender: 'Male', type: 'Synthesis' },
-      { id: 'en-GB-Standard-C', name: 'Flora', flag: '🇬🇧', gender: 'Female', type: 'Synthesis' },
-      { id: 'en-GB-Standard-D', name: 'Arthur', flag: '🇬🇧', gender: 'Male', type: 'Synthesis' }
-    ],
-    clone: [
-      { id: 'voice1', name: 'My Voice 1', flag: '🎙️', gender: 'Custom', type: 'Clone' },
-      { id: 'voice2', name: 'My Voice 2', flag: '🎙️', gender: 'Custom', type: 'Clone' },
-      { id: 'voice3', name: 'My Voice 3', flag: '🎙️', gender: 'Custom', type: 'Clone' }
-    ]
-  };
+  useEffect(() => {
+    const fetchVoices = async () => {
+      try {
+        const response = await api.get('/tts/voices');
+        console.log('Available voices:', response.data);
+        setVoices(response.data);
+        // If no voice is selected, set the first available voice
+        if (!settings.voice && response.data.length > 0) {
+          onChange({
+            ...settings,
+            voice: response.data[0].id
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching voices:', err);
+        setError('Failed to load voices');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVoices();
+  }, []);
 
   const handleSettingChange = (key: keyof ContentSettingsType, value: string) => {
     onChange({
@@ -92,10 +70,16 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   };
 
   const handleVoiceTypeChange = (type: 'library' | 'clone') => {
+    const filteredVoices = voices.filter(voice => 
+      type === 'library' 
+        ? ['Google Neural', 'FastPitch', 'Coqui'].includes(voice.type)
+        : voice.type === 'Clone'
+    );
+
     onChange({
       ...settings,
       voiceType: type,
-      voice: voiceOptions[type][0].id // Set first voice of selected type as default
+      voice: filteredVoices[0]?.id || settings.voice // Keep current voice if no alternatives found
     });
   };
 
@@ -106,7 +90,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
     rounded-lg 
     text-white/90
     focus:outline-none 
-    focus:border-[#ffffff 
+    focus:border-[#ffffff] 
     focus:ring-1 
     focus:ring-[#ffffff]
     appearance-none
@@ -123,11 +107,17 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const optgroupClasses = `
     bg-[#1a1a2e]
     text-[#63248d]
-    
   `;
 
+  // Filter voices based on selected type
+  const filteredVoices = voices.filter(voice => 
+    settings.voiceType === 'library' 
+      ? ['Google Neural', 'FastPitch', 'Coqui'].includes(voice.type)
+      : voice.type === 'Clone'
+  );
+
   // Group voices by type for better organization
-  const groupedVoices = voiceOptions[settings.voiceType].reduce((acc, voice) => {
+  const groupedVoices = filteredVoices.reduce((acc, voice) => {
     if (!acc[voice.type]) {
       acc[voice.type] = [];
     }
@@ -190,42 +180,46 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
             />
           </div>
           
-          <select
-            value={settings.voice}
-            onChange={(e) => handleSettingChange('voice', e.target.value)}
-            className={`${selectClasses} [&>optgroup]:${optgroupClasses}`}
-            style={{
-              background: '#ffffff20',
-              color: 'rgba(255, 255, 255, 0.9)'
-            }}
-          >
-            {Object.entries(groupedVoices).map(([type, voices]) => (
-              <optgroup 
-                key={type} 
-                label={`${type} Voices`}
-                className={optgroupClasses}
-                style={{
-                  background: '#1a1a2e',
-                  color: '#63248d',
-                  fontWeight: '600'
-                }}
-              >
-                {voices.map((voice) => (
-                  <option 
-                    key={voice.id} 
-                    value={voice.id} 
-                    className={optionClasses}
-                    style={{
-                      background: '#1a1a2e',
-                      color: 'rgba(255, 255, 255, 0.9)'
-                    }}
-                  >
-                    {`${voice.flag} ${voice.name} (${voice.gender})`}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+          {loading ? (
+            <div className="text-white/60">Loading voices...</div>
+          ) : error ? (
+            <div className="text-red-400">{error}</div>
+          ) : (
+            <select
+              value={settings.voice}
+              onChange={(e) => handleSettingChange('voice', e.target.value)}
+              className={selectClasses}
+              style={{
+                background: '#ffffff20',
+                color: 'rgba(255, 255, 255, 0.9)'
+              }}
+            >
+              {Object.entries(groupedVoices).map(([type, voices]) => (
+                <optgroup 
+                  key={type} 
+                  label={type}
+                  style={{
+                    background: '#1a1a2e',
+                    color: '#63248d',
+                    fontWeight: '600'
+                  }}
+                >
+                  {voices.map((voice) => (
+                    <option 
+                      key={voice.id} 
+                      value={voice.id}
+                      style={{
+                        background: '#1a1a2e',
+                        color: 'rgba(255, 255, 255, 0.9)'
+                      }}
+                    >
+                      {voice.flag} {voice.name} ({voice.gender})
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          )}
         </div>
       </div>
     </div>

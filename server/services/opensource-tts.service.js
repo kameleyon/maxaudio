@@ -63,22 +63,20 @@ class OpenSourceTTSService {
     }
 
     /**
-     * Backup TTS using Piper
+     * Generate with FastPitch
      */
-    async generateWithPiper(text, options = {}) {
+    async generateWithFastPitch(text, options = {}) {
         const outputPath = path.join(this.audioDir, `audio_${Date.now()}.wav`);
         
-        // Add SSML markers for natural speech
-        const markedText = this.addNaturalMarkers(text);
-
         return new Promise((resolve, reject) => {
-            const process = spawn('piper', [
-                '--model', path.join(this.modelsDir, 'en_US-amy-medium.onnx'),
-                '--output_file', outputPath
+            // Use Python subprocess to run FastPitch
+            const process = spawn('python', [
+                '-m', 'TTS.bin.synthesize',
+                '--text', text,
+                '--model_name', 'tts_models/en/ljspeech/fast_pitch',
+                '--out_path', outputPath,
+                '--vocoder_name', 'vocoder_models/en/ljspeech/hifigan_v2'
             ]);
-
-            process.stdin.write(markedText);
-            process.stdin.end();
 
             let error = '';
             process.stderr.on('data', (data) => {
@@ -95,7 +93,7 @@ class OpenSourceTTSService {
                         reject(err);
                     }
                 } else {
-                    reject(new Error(`Piper TTS failed: ${error}`));
+                    reject(new Error(`FastPitch failed: ${error}`));
                 }
             });
         });
@@ -144,18 +142,16 @@ class OpenSourceTTSService {
      */
     async generateSpeech(text, options = {}) {
         try {
-            // Try Coqui first
-            console.log('Attempting to generate speech with Coqui YourTTS...');
-            return await this.generateWithCoqui(text, options);
-        } catch (error) {
-            console.error('Coqui TTS failed, falling back to Piper:', error);
-            try {
-                // Fallback to Piper
-                return await this.generateWithPiper(text, options);
-            } catch (piperError) {
-                console.error('Piper TTS also failed:', piperError);
-                throw new Error('All TTS engines failed');
+            if (options.voice?.startsWith('fastpitch')) {
+                console.log('Using FastPitch for generation...');
+                return await this.generateWithFastPitch(text, options);
+            } else {
+                console.log('Using Coqui YourTTS for generation...');
+                return await this.generateWithCoqui(text, options);
             }
+        } catch (error) {
+            console.error('TTS generation failed:', error);
+            throw error;
         }
     }
 
@@ -166,24 +162,26 @@ class OpenSourceTTSService {
         // Return a list of available voices from both engines
         return [
             {
+                id: 'fastpitch-ljspeech',
+                name: 'FastPitch LJSpeech',
+                flag: '🤖',
+                gender: 'Female',
+                type: 'FastPitch'
+            },
+            {
                 id: 'coqui-en-female',
                 name: 'Coqui English Female',
-                language: 'en',
-                engine: 'coqui'
+                flag: '🎙️',
+                gender: 'Female',
+                type: 'Coqui'
             },
             {
                 id: 'coqui-en-male',
                 name: 'Coqui English Male',
-                language: 'en',
-                engine: 'coqui'
-            },
-            {
-                id: 'piper-amy',
-                name: 'Piper Amy',
-                language: 'en',
-                engine: 'piper'
+                flag: '🎙️',
+                gender: 'Male',
+                type: 'Coqui'
             }
-            // Add more voices as they become available
         ];
     }
 

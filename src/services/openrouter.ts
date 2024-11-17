@@ -10,49 +10,32 @@ interface GenerateContentParams {
 
 export async function generateContent({ content, tone, category }: GenerateContentParams): Promise<string> {
   try {
-    const systemPrompt = `You are an expert content creator specializing in ${category} content with a ${tone} tone.
-Your task is to expand and enhance the given content into a 15-minute presentation (approximately 2250-3000 words).
+    const systemPrompt = `You are a natural, engaging speaker delivering a 15-minute ${category} talk in a ${tone} tone. 
+You're speaking directly to your audience, sharing your thoughts and insights in a way that feels completely authentic and unscripted.
 
-Guidelines for expansion:
-1. Develop the core message through:
-   - Detailed stories and examples (at least 2-3 stories)
-   - In-depth real-world applications
-   - Comprehensive explanations of key concepts
-   - Multiple thought-provoking questions
-   - Strong supporting evidence and research
-   - Extended analogies and metaphors
+Your speaking style:
+- You speak naturally, as if having a deep conversation with friends or colleagues
+- Your words flow organically from one thought to the next
+- You share personal insights, experiences, and reflections naturally
+- Your passion and expertise shine through in your word choices
+- You maintain a consistent, authentic voice throughout
+- You express genuine emotion and conviction through your words
+- You naturally build and release tension through your pacing
+- You use natural pauses and emphasis in your speech patterns
+- You address your audience directly, creating a sense of connection
+- You tell stories and share examples as they naturally arise in conversation
 
-2. Structure for optimal flow (15-minute format):
-   - Compelling hook (1-2 minutes)
-   - Main content development (10-11 minutes)
-   - Examples and stories (2-3 minutes)
-   - Strong conclusion (1-2 minutes)
-   - Natural transitions between all sections
+Important:
+- Do not include any structural markers (like "Hook" or "Main Content")
+- Do not include any meta-instructions or stage directions
+- Do not mention time markers or presentation structure
+- Do not include any formatting instructions
+- Do not break the monologue into sections
+- Simply speak naturally, as if you're in the moment
+- Let your thoughts flow organically for about 15 minutes
+- Maintain the natural rhythm of conversation throughout
 
-3. Maintain ${tone} tone while being engaging:
-   - Professional: Clear, authoritative, yet accessible
-   - Casual: Conversational and relatable
-   - Educational: Informative but engaging
-   - Inspirational: Uplifting and motivational
-
-4. Use natural language patterns:
-   - Vary sentence length and structure
-   - Include rhetorical questions
-   - Create natural pauses through sentence structure
-   - Use descriptive language to paint pictures
-   - Add emphasis points for key messages
-
-5. Expand through these techniques:
-   - Deep dive into each key point (2-3 minutes per point)
-   - Connect ideas to broader themes
-   - Share multiple perspectives
-   - Provide detailed practical applications
-   - Include relevant analogies
-   - Add supporting statistics or research
-   - Incorporate audience engagement points
-
-Transform the content into an engaging, in-depth 15-minute presentation while maintaining its core message and purpose.
-Ensure the content is substantial enough for a full 15-minute delivery at a natural speaking pace.`;
+Transform the given content into a natural, flowing monologue that feels like listening to someone share their genuine thoughts and experiences with their audience. The speech should be engaging enough to hold attention for 15 minutes while feeling completely natural and unscripted.`;
 
     if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
       throw new Error('OpenRouter API key not configured');
@@ -61,7 +44,6 @@ Ensure the content is substantial enough for a full 15-minute delivery at a natu
     const response = await axios.post(
       API_URL,
       {
-        // IMPORTANT: Always use Llama 90B - DO NOT CHANGE THIS MODEL
         model: 'meta-llama/llama-3.2-90b-vision-instruct',
         messages: [
           {
@@ -70,11 +52,11 @@ Ensure the content is substantial enough for a full 15-minute delivery at a natu
           },
           {
             role: 'user',
-            content: `Please expand this content into a full 15-minute presentation, ensuring sufficient depth and detail: ${content}`
+            content: `Transform this content into a natural, flowing 15-minute monologue, as if you're speaking directly from your heart to your audience: ${content}`
           }
         ],
         temperature: 0.7,
-        max_tokens: 6000  // Increased for longer content
+        max_tokens: 6000
       },
       {
         headers: {

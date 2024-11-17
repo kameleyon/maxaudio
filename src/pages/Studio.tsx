@@ -18,7 +18,7 @@ interface GenerateContentParams {
 interface AudioGenerateParams {
   text: string;
   language?: 'en-GB' | 'en-US';
-  voiceName?: string;
+  voice: string;
   pitch?: number;
   speakingRate?: number;
   publish?: boolean;
@@ -81,7 +81,7 @@ export function Studio() {
       const params: AudioGenerateParams = {
         text: textContent,
         language: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
-        voiceName: settings.voice,
+        voice: settings.voice,
         publish
       };
 
