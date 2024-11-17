@@ -1,47 +1,60 @@
-# Dependencies
-node_modules/
-**/node_modules/
-.package-lock.json
-**/.package-lock.json
-package-lock.json
-**/package-lock.json
-.bin/
-**/.bin/
-_metadata.json
-**/_metadata.json
-
-# Environment files
-.env
-*.env
-!.env.example
-
 # Logs
 logs
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Build output
-dist/
+node_modules
+dist
+dist-ssr
+*.local
 
-# IDE specific files
-.vscode/
-.idea/
-*.swp
-*.swo
-
-# Temporary files
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
 
-# Sensitive configuration
-*.pem
-*.key
-google-credentials.json
-**/google-credentials.json
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+server/venv39/
 
-# Generated audio files
-server/audios/
-**/server/audios/
-*.mp3
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Audio files
+server/audios/*.mp3
+server/audios/*.wav
+
+# Test coverage
+coverage/
+.nyc_output/
