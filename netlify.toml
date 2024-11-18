@@ -1,11 +1,11 @@
 [build]
-  command = "npm run build-only && cd netlify/functions && npm install"
-  publish = "build-only"
+  command = "npm run build-only"
+  publish = "build"
   functions = "netlify/functions"
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@google-cloud/text-to-speech", "express", "mongodb", "mongoose"]
+  external_node_modules = ["@google-cloud/text-to-speech", "express", "mongodb", "mongoose", "stripe", "nodemailer"]
 
 [[redirects]]
   from = "/api/*"
