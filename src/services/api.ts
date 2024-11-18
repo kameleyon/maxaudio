@@ -10,8 +10,10 @@ const api = axios.create({
   baseURL,
   headers: {
     'Content-Type': 'application/json',
+    'Accept': 'application/json'
   },
-  withCredentials: true // Important for sending cookies
+  withCredentials: false, // Set to false since we're using token-based auth
+  timeout: 10000 // 10 second timeout
 });
 
 let isRefreshing = false;
@@ -75,7 +77,13 @@ api.interceptors.response.use(
         const response = await axios.post(
           refreshUrl,
           {},
-          { withCredentials: true }
+          { 
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            },
+            withCredentials: false
+          }
         );
         const { token } = response.data;
         
