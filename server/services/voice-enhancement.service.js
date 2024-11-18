@@ -1,153 +1,61 @@
-const { OpenAI } = require('openai');
-const { Elevenlabs } = require('elevenlabs-node');
 const { TextToSpeechClient } = require('@google-cloud/text-to-speech');
 
 class VoiceEnhancementService {
     constructor() {
-        // Initialize OpenAI for emotion analysis
-        this.openai = new OpenAI({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-
-        // Initialize ElevenLabs for enhanced voices
-        this.elevenLabs = new Elevenlabs({
-            apiKey: process.env.ELEVENLABS_API_KEY
-        });
-
-        // Initialize Google TTS as fallback
+        // Initialize Google TTS
         try {
             const credentials = require('../google-credentials.json');
             this.googleTTS = new TextToSpeechClient({
                 credentials,
                 projectId: credentials.project_id
             });
+            console.log('Successfully initialized TextToSpeechClient');
         } catch (error) {
             console.error('Error initializing Google TTS:', error);
         }
+
+        // Voice enhancement settings
+        this.settings = {
+            defaultStability: 0.71,
+            defaultSimilarityBoost: 0.5,
+            defaultSpeakingRate: 1.0
+        };
     }
 
     /**
-     * Analyze text emotion using OpenAI
+     * Generate emotional SSML based on tone
      */
-    async analyzeEmotion(text) {
-        try {
-            const completion = await this.openai.chat.completions.create({
-                model: "gpt-4",
-                messages: [{
-                    role: "system",
-                    content: `Analyze the emotional content of the following text. 
-                             Return a JSON object with:
-                             - primaryEmotion (e.g., happy, sad, excited, calm)
-                             - intensity (0-1)
-                             - suggestedVoiceSettings (stability, similarity_boost, speaking_rate)`
-                }, {
-                    role: "user",
-                    content: text
-                }]
-            });
+    generateEmotionalSSML(text, tone = 'neutral') {
+        let ssml = '<speak xmlns="http://www.w3.org/2001/10/synthesis" version="1.0">';
 
-            return JSON.parse(completion.choices[0].message.content);
-        } catch (error) {
-            console.error('Error analyzing emotion:', error);
-            return {
-                primaryEmotion: 'neutral',
-                intensity: 0.5,
-                suggestedVoiceSettings: {
-                    stability: 0.71,
-                    similarity_boost: 0.5,
-                    speaking_rate: 1.0
-                }
-            };
-        }
-    }
-
-    /**
-     * Generate enhanced speech using ElevenLabs
-     */
-    async generateEnhancedSpeech(text, voiceId = "josh") {
-        try {
-            // Analyze emotion first
-            const emotion = await this.analyzeEmotion(text);
-            console.log('Emotion analysis:', emotion);
-
-            // Generate speech with ElevenLabs
-            const audioContent = await this.elevenLabs.generate({
-                text,
-                voice_id: voiceId,
-                model_id: "eleven_multilingual_v2",
-                voice_settings: {
-                    stability: emotion.suggestedVoiceSettings.stability,
-                    similarity_boost: emotion.suggestedVoiceSettings.similarity_boost,
-                    speaking_rate: emotion.suggestedVoiceSettings.speaking_rate
-                }
-            });
-
-            return {
-                audioContent,
-                emotion
-            };
-        } catch (error) {
-            console.error('Error generating enhanced speech:', error);
-            // Fall back to Google TTS
-            return this.fallbackToGoogleTTS(text, emotion);
-        }
-    }
-
-    /**
-     * Fallback to Google TTS with emotion-enhanced SSML
-     */
-    async fallbackToGoogleTTS(text, emotion) {
-        try {
-            const ssml = this.generateEmotionalSSML(text, emotion);
-            
-            const request = {
-                input: { ssml },
-                voice: {
-                    languageCode: 'en-US',
-                    name: 'en-US-Neural2-D',
-                    ssmlGender: 'MALE'
-                },
-                audioConfig: {
-                    audioEncoding: 'MP3',
-                    pitch: this.getEmotionalPitch(emotion),
-                    speakingRate: emotion.suggestedVoiceSettings.speaking_rate,
-                    effectsProfileId: ['telephony-class-application']
-                }
-            };
-
-            const [response] = await this.googleTTS.synthesizeSpeech(request);
-            return {
-                audioContent: response.audioContent,
-                emotion
-            };
-        } catch (error) {
-            console.error('Error in Google TTS fallback:', error);
-            throw error;
-        }
-    }
-
-    /**
-     * Generate emotional SSML based on analyzed emotion
-     */
-    generateEmotionalSSML(text, emotion) {
-        let ssml = '<speak>';
-
-        switch (emotion.primaryEmotion) {
+        switch (tone.toLowerCase()) {
             case 'happy':
-                ssml += `<prosody rate="${100 + (emotion.intensity * 20)}%" pitch="+${emotion.intensity * 2}st">`;
+                ssml += '<prosody rate="110%" pitch="+2st">';
                 break;
             case 'sad':
-                ssml += `<prosody rate="${100 - (emotion.intensity * 10)}%" pitch="-${emotion.intensity * 2}st">`;
+                ssml += '<prosody rate="90%" pitch="-2st">';
                 break;
             case 'excited':
-                ssml += `<prosody rate="${100 + (emotion.intensity * 30)}%" pitch="+${emotion.intensity * 3}st">`;
+                ssml += '<prosody rate="120%" pitch="+3st">';
                 break;
             case 'calm':
-                ssml += `<prosody rate="${100 - (emotion.intensity * 5)}%" pitch="-${emotion.intensity}st">`;
+                ssml += '<prosody rate="95%" pitch="-1st">';
+                break;
+            case 'professional':
+                ssml += '<prosody rate="100%" pitch="+0.5st">';
+                break;
+            case 'casual':
+                ssml += '<prosody rate="105%" pitch="+1st">';
                 break;
             default:
                 ssml += '<prosody rate="100%" pitch="0st">';
         }
+
+        // Add natural pauses and emphasis
+        text = text
+            .replace(/([.!?])\s+/g, '$1<break time="750ms"/>')
+            .replace(/([,;])\s+/g, '$1<break time="500ms"/>')
+            .replace(/\n\n+/g, '<break time="1s"/>');
 
         ssml += text;
         ssml += '</prosody></speak>';
@@ -155,32 +63,72 @@ class VoiceEnhancementService {
     }
 
     /**
+     * Generate speech with Google TTS
+     */
+    async generateSpeech(text, options = {}) {
+        try {
+            const ssml = this.generateEmotionalSSML(text, options.tone);
+            
+            const request = {
+                input: { ssml },
+                voice: {
+                    languageCode: options.voice?.includes('GB') ? 'en-GB' : 'en-US',
+                    name: options.voice || 'en-US-Neural2-D',
+                    ssmlGender: options.gender?.toUpperCase() || 'NEUTRAL'
+                },
+                audioConfig: {
+                    audioEncoding: 'MP3',
+                    pitch: options.pitch || 0,
+                    speakingRate: options.speakingRate || this.settings.defaultSpeakingRate,
+                    effectsProfileId: ['telephony-class-application']
+                }
+            };
+
+            console.log('Making TTS API request with:', request);
+            const [response] = await this.googleTTS.synthesizeSpeech(request);
+            return response.audioContent;
+        } catch (error) {
+            console.error('Error generating speech:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get available voices
+     */
+    async getVoices() {
+        try {
+            const [response] = await this.googleTTS.listVoices({});
+            return response.voices
+                .filter(voice => voice.languageCodes[0].startsWith('en-'))
+                .map(voice => ({
+                    id: voice.name,
+                    name: `${voice.name.split('-').pop()} (${voice.languageCodes[0].split('-')[1]})`,
+                    flag: voice.languageCodes[0].startsWith('en-GB') ? '🇬🇧' : '🇺🇸',
+                    gender: voice.ssmlGender.charAt(0) + voice.ssmlGender.slice(1).toLowerCase(),
+                    type: 'Google Neural'
+                }));
+        } catch (error) {
+            console.error('Error getting voices:', error);
+            return [];
+        }
+    }
+
+    /**
      * Get emotional pitch adjustment
      */
-    getEmotionalPitch(emotion) {
+    getEmotionalPitch(tone) {
         const pitchMap = {
             happy: 2,
             sad: -2,
             excited: 4,
             calm: -1,
+            professional: 0.5,
+            casual: 1,
             neutral: 0
         };
 
-        return (pitchMap[emotion.primaryEmotion] || 0) * emotion.intensity;
-    }
-
-    /**
-     * Get available ElevenLabs voices
-     */
-    async getVoices() {
-        try {
-            return await this.elevenLabs.getVoices();
-        } catch (error) {
-            console.error('Error getting ElevenLabs voices:', error);
-            // Fall back to Google TTS voices
-            const [response] = await this.googleTTS.listVoices({});
-            return response.voices;
-        }
+        return pitchMap[tone.toLowerCase()] || 0;
     }
 }
 

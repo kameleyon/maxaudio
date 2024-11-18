@@ -1,6 +1,7 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
+const voiceEnhancement = require('./voice-enhancement.service');
 
 class OpenSourceTTSService {
     constructor() {
@@ -9,8 +10,59 @@ class OpenSourceTTSService {
         this.audioDir = path.join(__dirname, '../audios');
         this.tempDir = path.join(__dirname, '../temp');
         
-        // Ensure directories exist
-        this.initializeDirs();
+        // Ensure directories exist on startup
+        this.initializeDirs().catch(console.error);
+
+        // Voice categories with specialized models for better quality
+        this.voiceCategories = {
+            'US English': [
+                {
+                    id: 'xtts-us-sarah',
+                    name: 'Sarah (US)',
+                    flag: '🇺🇸',
+                    gender: 'Female',
+                    type: 'FastPitch',
+                    model: 'tts_models/en/ljspeech/fast_pitch',
+                    language: 'en',
+                    description: 'High-quality female voice with natural intonation'
+                },
+                {
+                    id: 'xtts-us-michael',
+                    name: 'Michael (US)',
+                    flag: '🇺🇸',
+                    gender: 'Male',
+                    type: 'FastPitch',
+                    model: 'tts_models/en/ljspeech/fast_pitch',
+                    language: 'en',
+                    pitch_shift: -0.3,  // Lower pitch for male voice
+                    description: 'High-quality male voice with natural intonation'
+                }
+            ],
+            'UK English': [
+                {
+                    id: 'xtts-uk-emma',
+                    name: 'Emma (UK)',
+                    flag: '🇬🇧',
+                    gender: 'Female',
+                    type: 'FastPitch',
+                    model: 'tts_models/en/ljspeech/fast_pitch',
+                    language: 'en',
+                    pitch_shift: 0.1,  // Slightly higher pitch for female voice
+                    description: 'High-quality British female voice'
+                },
+                {
+                    id: 'xtts-uk-james',
+                    name: 'James (UK)',
+                    flag: '🇬🇧',
+                    gender: 'Male',
+                    type: 'FastPitch',
+                    model: 'tts_models/en/ljspeech/fast_pitch',
+                    language: 'en',
+                    pitch_shift: -0.4,  // Lower pitch for male voice
+                    description: 'High-quality British male voice'
+                }
+            ]
+        };
     }
 
     async initializeDirs() {
@@ -18,137 +70,78 @@ class OpenSourceTTSService {
         for (const dir of dirs) {
             try {
                 await fs.mkdir(dir, { recursive: true });
+                console.log(`Directory created/verified: ${dir}`);
             } catch (error) {
                 console.error(`Error creating directory ${dir}:`, error);
+                throw error;
             }
         }
     }
 
     /**
-     * Primary TTS using Coqui YourTTS
+     * Process text for natural speech markers
      */
-    async generateWithCoqui(text, options = {}) {
-        const outputPath = path.join(this.audioDir, `audio_${Date.now()}.wav`);
-        
-        return new Promise((resolve, reject) => {
-            // Use Python subprocess to run Coqui TTS
-            const process = spawn('python', [
-                '-m', 'TTS.bin.synthesize',
-                '--text', text,
-                '--model_name', 'tts_models/multilingual/multi-dataset/your_tts',
-                '--out_path', outputPath,
-                '--speaker_idx', options.speaker || '0',
-                '--language_idx', options.language || 'en'
-            ]);
+    processTextMarkers(text) {
+        // Add natural pauses
+        text = text
+            .replace(/([.!?])\s+/g, '$1<break time="750ms"/>')
+            .replace(/([,;])\s+/g, '$1<break time="500ms"/>')
+            .replace(/\.\.\./g, '<break time="1s"/><prosody rate="slow">hmm</prosody><break time="500ms"/>')
+            .replace(/\(pause\)/g, '<break time="500ms"/>')
+            .replace(/\(long pause\)/g, '<break time="1s"/>');
 
-            let error = '';
-            process.stderr.on('data', (data) => {
-                error += data;
-            });
+        // Process emotional markers
+        text = text
+            .replace(/\(happy\)(.*?)\)/g, '<prosody rate="110%" pitch="+2st">$1</prosody>')
+            .replace(/\(sad\)(.*?)\)/g, '<prosody rate="90%" pitch="-2st">$1</prosody>')
+            .replace(/\(excited\)(.*?)\)/g, '<prosody rate="120%" pitch="+3st">$1</prosody>')
+            .replace(/\(calm\)(.*?)\)/g, '<prosody rate="95%" pitch="-1st">$1</prosody>')
+            .replace(/\(thoughtful\)(.*?)\)/g, '<prosody rate="85%" pitch="-1st">$1</prosody>');
 
-            process.on('close', async (code) => {
-                if (code === 0) {
-                    try {
-                        const audio = await fs.readFile(outputPath);
-                        await fs.unlink(outputPath); // Clean up
-                        resolve(audio);
-                    } catch (err) {
-                        reject(err);
-                    }
-                } else {
-                    reject(new Error(`Coqui TTS failed: ${error}`));
-                }
-            });
-        });
+        // Process voice variations
+        text = text
+            .replace(/\(whisper\)(.*?)\)/g, '<prosody volume="soft" rate="90%">$1</prosody>')
+            .replace(/\(soft\)(.*?)\)/g, '<prosody volume="soft">$1</prosody>')
+            .replace(/\(loud\)(.*?)\)/g, '<prosody volume="loud">$1</prosody>');
+
+        // Process emphasis
+        text = text
+            .replace(/\*\*(.*?)\*\*/g, '<emphasis level="strong">$1</emphasis>')
+            .replace(/\*(.*?)\*/g, '<emphasis level="moderate">$1</emphasis>');
+
+        return text;
     }
 
     /**
-     * Generate with FastPitch
-     */
-    async generateWithFastPitch(text, options = {}) {
-        const outputPath = path.join(this.audioDir, `audio_${Date.now()}.wav`);
-        
-        return new Promise((resolve, reject) => {
-            // Use Python subprocess to run FastPitch
-            const process = spawn('python', [
-                '-m', 'TTS.bin.synthesize',
-                '--text', text,
-                '--model_name', 'tts_models/en/ljspeech/fast_pitch',
-                '--out_path', outputPath,
-                '--vocoder_name', 'vocoder_models/en/ljspeech/hifigan_v2'
-            ]);
-
-            let error = '';
-            process.stderr.on('data', (data) => {
-                error += data;
-            });
-
-            process.on('close', async (code) => {
-                if (code === 0) {
-                    try {
-                        const audio = await fs.readFile(outputPath);
-                        await fs.unlink(outputPath); // Clean up
-                        resolve(audio);
-                    } catch (err) {
-                        reject(err);
-                    }
-                } else {
-                    reject(new Error(`FastPitch failed: ${error}`));
-                }
-            });
-        });
-    }
-
-    /**
-     * Add natural speech markers using SSML
-     */
-    addNaturalMarkers(text) {
-        let ssml = '<speak>';
-
-        // Split into sentences
-        const sentences = text.split(/([.!?]+)/);
-
-        for (let i = 0; i < sentences.length; i++) {
-            const sentence = sentences[i];
-            
-            // Skip empty sentences
-            if (!sentence.trim()) continue;
-
-            // Add prosody based on punctuation
-            if (sentence.includes('?')) {
-                ssml += `<prosody pitch="+15%" rate="95%">${sentence}</prosody>`;
-            } else if (sentence.includes('!')) {
-                ssml += `<prosody pitch="+10%" rate="110%">${sentence}</prosody>`;
-            } else if (sentence.includes('.')) {
-                ssml += `${sentence}<break time="500ms"/>`;
-            } else if (sentence.includes(',')) {
-                ssml += `${sentence}<break time="200ms"/>`;
-            } else {
-                ssml += sentence;
-            }
-
-            // Add natural pauses between sentences
-            if (i < sentences.length - 1) {
-                ssml += '<break time="300ms"/>';
-            }
-        }
-
-        ssml += '</speak>';
-        return ssml;
-    }
-
-    /**
-     * Main generate function with fallback
+     * Generate speech using TTS engine
      */
     async generateSpeech(text, options = {}) {
         try {
-            if (options.voice?.startsWith('fastpitch')) {
-                console.log('Using FastPitch for generation...');
-                return await this.generateWithFastPitch(text, options);
-            } else {
-                console.log('Using Coqui YourTTS for generation...');
-                return await this.generateWithCoqui(text, options);
+            // Ensure directories exist before proceeding
+            await this.initializeDirs();
+
+            const voice = this.findVoice(options.voice);
+            if (!voice) {
+                throw new Error('Invalid voice selected');
             }
+
+            // Process natural speech markers
+            const processedText = this.processTextMarkers(text);
+            const outputPath = path.join(this.audioDir, `audio_${Date.now()}.wav`);
+
+            // Generate audio using appropriate model
+            const audio = await this.generateWithModel(
+                processedText,
+                voice,
+                outputPath
+            );
+
+            // Apply voice enhancement if needed
+            if (options.tone) {
+                return await voiceEnhancement.enhanceSpeech(audio, options.tone);
+            }
+
+            return audio;
         } catch (error) {
             console.error('TTS generation failed:', error);
             throw error;
@@ -156,33 +149,112 @@ class OpenSourceTTSService {
     }
 
     /**
+     * Generate speech with appropriate model
+     */
+    async generateWithModel(text, voice, outputPath) {
+        return new Promise((resolve, reject) => {
+            // Create Python script content with proper string escaping
+            const pythonScript = `
+import sys
+from TTS.api import TTS
+
+try:
+    text = """${text.replace(/"/g, '\\"')}"""
+    
+    tts = TTS("${voice.model}")
+    
+    # Generate speech with appropriate parameters based on model type
+    if "${voice.type}" == "VITS":
+        tts.tts_to_file(
+            text=text,
+            file_path="${outputPath.replace(/\\/g, '\\\\')}",
+            speaker_id="${voice.speaker_id}",
+            language="${voice.language}"
+        )
+    else:
+        tts.tts_to_file(
+            text=text,
+            file_path="${outputPath.replace(/\\/g, '\\\\')}"
+        )
+        
+    print("SUCCESS")
+except Exception as e:
+    print(f"ERROR: {str(e)}")
+    sys.exit(1)
+`;
+
+            // Write temporary script
+            const scriptPath = path.join(this.tempDir, `tts_script_${Date.now()}.py`);
+            
+            fs.writeFile(scriptPath, pythonScript)
+                .then(() => {
+                    console.log('Running TTS script:', scriptPath);
+                    
+                    const process = spawn('python', [scriptPath]);
+                    
+                    let stdout = '';
+                    let stderr = '';
+
+                    process.stdout.on('data', (data) => {
+                        stdout += data;
+                        console.log(`TTS stdout: ${data}`);
+                    });
+
+                    process.stderr.on('data', (data) => {
+                        stderr += data;
+                        console.error(`TTS stderr: ${data}`);
+                    });
+
+                    process.on('close', async (code) => {
+                        try {
+                            // Clean up script
+                            await fs.unlink(scriptPath);
+
+                            if (code === 0 && stdout.includes('SUCCESS')) {
+                                // Read and return the generated audio
+                                const audio = await fs.readFile(outputPath);
+                                await fs.unlink(outputPath); // Clean up
+                                resolve(audio);
+                            } else {
+                                reject(new Error(`TTS generation failed: ${stderr}`));
+                            }
+                        } catch (err) {
+                            reject(err);
+                        }
+                    });
+
+                    process.on('error', (err) => {
+                        console.error('Failed to start TTS process:', err);
+                        reject(err);
+                    });
+                })
+                .catch(reject);
+        });
+    }
+
+    /**
+     * Find voice configuration by ID
+     */
+    findVoice(voiceId) {
+        for (const category of Object.values(this.voiceCategories)) {
+            const voice = category.find(v => v.id === voiceId);
+            if (voice) return voice;
+        }
+        return null;
+    }
+
+    /**
      * Get available voices
      */
     async getVoices() {
-        // Return a list of available voices from both engines
-        return [
-            {
-                id: 'fastpitch-ljspeech',
-                name: 'FastPitch LJSpeech',
-                flag: '🤖',
-                gender: 'Female',
-                type: 'FastPitch'
-            },
-            {
-                id: 'coqui-en-female',
-                name: 'Coqui English Female',
-                flag: '🎙️',
-                gender: 'Female',
-                type: 'Coqui'
-            },
-            {
-                id: 'coqui-en-male',
-                name: 'Coqui English Male',
-                flag: '🎙️',
-                gender: 'Male',
-                type: 'Coqui'
-            }
-        ];
+        return Object.values(this.voiceCategories).flat();
+    }
+
+    /**
+     * Get voices by category
+     */
+    async getVoicesByCategory() {
+        return this.voiceCategories;
     }
 
     /**
