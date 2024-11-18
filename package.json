@@ -17,9 +17,7 @@
     "setup:voices": "node server/scripts/setup-voice-models.js",
     "postinstall": "npm run setup && npm run setup:voices"
   },
- "dependencies": {
-    "@google-cloud/storage": "^7.14.0",
-    "@google-cloud/text-to-speech": "^5.6.0",
+  "dependencies": {
     "@headlessui/react": "^1.7.17",
     "@heroicons/react": "^2.1.1",
     "@radix-ui/react-select": "^2.1.2",
