@@ -69,6 +69,36 @@ class AuthService {
     }
   }
 
+  async checkUsernameAvailability(username: string): Promise<boolean> {
+    try {
+      const { data } = await api.get<{ available: boolean }>(`/auth/check-username/${username}`);
+      return data.available;
+    } catch (error) {
+      console.error('Username availability check error:', error);
+      throw error;
+    }
+  }
+
+  async checkEmailAvailability(email: string): Promise<boolean> {
+    try {
+      const { data } = await api.get<{ available: boolean }>(`/auth/check-email/${email}`);
+      return data.available;
+    } catch (error) {
+      console.error('Email availability check error:', error);
+      throw error;
+    }
+  }
+
+  async updatePreferences(preferences: Partial<User['preferences']>): Promise<User> {
+    try {
+      const { data } = await api.patch<User>('/auth/preferences', preferences);
+      return data;
+    } catch (error) {
+      console.error('Update preferences error:', error);
+      throw error;
+    }
+  }
+
   logout(): void {
     this.removeToken();
     // Clear any other auth-related data from localStorage if needed
