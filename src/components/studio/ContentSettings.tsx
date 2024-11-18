@@ -16,17 +16,11 @@ interface ContentSettingsProps {
 interface VoiceOption {
   id: string;
   name: string;
-  flag: string;
+  flag?: string;
   gender: string;
   type: string;
-  accent: string;
-}
-
-interface AudienceCategory {
-  id: string;
-  name: string;
-  description: string;
-  voiceTypes: string[];
+  accent?: string;
+  language?: string;
 }
 
 export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
@@ -34,36 +28,31 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const audiences: AudienceCategory[] = [
-    {
-      id: 'default',
-      name: 'Choose your audience',
-      description: '',
-      voiceTypes: []
-    },
+  const audiences = [
     {
       id: 'social-media',
       name: 'Social Media-Friendly, Podcast',
-      description: 'short, engaging, casual, conversational',
-      voiceTypes: ['casual', 'conversational', 'friendly']
+      description: 'short, engaging, casual, conversational'
     },
     {
       id: 'educational',
       name: 'Educational, Teaching, Training',
-      description: 'structured, informative, accessible',
-      voiceTypes: ['professional', 'clear', 'authoritative']
+      description: 'structured, informative, accessible'
     },
     {
       id: 'storytelling',
       name: 'Storytelling, Narrative, Entertaining',
-      description: 'compelling, narrative-driven, engaging, captivating',
-      voiceTypes: ['expressive', 'dramatic', 'engaging']
+      description: 'compelling, narrative-driven, engaging, captivating'
     },
     {
       id: 'deep-content',
       name: 'Deep/Debate Content, Motivational, TedTalk',
-      description: 'thought-provoking, insightful, balanced',
-      voiceTypes: ['authoritative', 'professional', 'confident']
+      description: 'thought-provoking, insightful, balanced'
+    },
+    {
+      id: 'meditation',
+      name: 'Meditation, Mantra, Prayers, ASMR',
+      description: 'smooth, calm, slow'
     }
   ];
 
@@ -133,46 +122,12 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
     hover:bg-[#63248d]/20
   `;
 
-  const optgroupClasses = `
-    bg-[#1a1a2e]
-    text-[#63248d]
-  `;
+  // Get country flag emoji based on accent/language
+  const getCountryFlag = (voice: VoiceOption): string => {
+    if (!voice.accent && !voice.language) return '🌐';
 
-  // Filter voices based on selected type and audience
-  const getVoicesForAudience = (audienceId: string) => {
-    const audience = audiences.find(a => a.id === audienceId);
-    if (!audience || audienceId === 'default') return [];
-
-    return voices.filter(voice => {
-      const matchesType = settings.voiceType === 'library' 
-        ? ['PlayHT', 'FastPitch', 'Coqui'].includes(voice.type)
-        : voice.type === 'Clone';
-
-      // Map accent to appropriate audience categories
-      const voiceStyle = getVoiceStyle(voice.accent);
-      return matchesType && audience.voiceTypes.includes(voiceStyle);
-    });
-  };
-
-  // Helper function to map voice accent to style
-  const getVoiceStyle = (accent: string): string => {
-    const accentMap: { [key: string]: string } = {
-      'american': 'casual',
-      'british': 'professional',
-      'australian': 'friendly',
-      'indian': 'clear',
-      'african': 'expressive',
-      'irish': 'engaging',
-      'scottish': 'authoritative',
-      'canadian': 'conversational',
-      'newzealand': 'confident',
-      'southafrican': 'dramatic'
-    };
-    return accentMap[accent.toLowerCase()] || 'casual';
-  };
-
-  // Get country flag emoji based on accent
-  const getCountryFlag = (accent: string): string => {
+    const accentOrLanguage = (voice.accent || voice.language || '').toLowerCase();
+    
     const flagMap: { [key: string]: string } = {
       'american': '🇺🇸',
       'british': '🇬🇧',
@@ -183,10 +138,23 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
       'scottish': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
       'canadian': '🇨🇦',
       'newzealand': '🇳🇿',
-      'southafrican': '🇿🇦'
+      'southafrican': '🇿🇦',
+      'english': '🇺🇸',
+      'en-us': '🇺🇸',
+      'en-gb': '🇬🇧',
+      'en-au': '🇦🇺',
+      'en-in': '🇮🇳'
     };
-    return flagMap[accent.toLowerCase()] || '🌐';
+
+    return flagMap[accentOrLanguage] || '🌐';
   };
+
+  // Filter voices based on selected type
+  const filteredVoices = voices.filter(voice => 
+    settings.voiceType === 'library' 
+      ? ['PlayHT', 'FastPitch', 'Coqui'].includes(voice.type)
+      : voice.type === 'Clone'
+  );
 
   return (
     <div className="space-y-4">
@@ -240,35 +208,18 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
                 color: 'rgba(255, 255, 255, 0.9)'
               }}
             >
-              {audiences.map((audience) => {
-                const audienceVoices = getVoicesForAudience(audience.id);
-                if (audienceVoices.length === 0) return null;
-
-                return (
-                  <optgroup 
-                    key={audience.id} 
-                    label={audience.name}
-                    style={{
-                      background: '#1a1a2e',
-                      color: '#63248d',
-                      fontWeight: '600'
-                    }}
-                  >
-                    {audienceVoices.map((voice) => (
-                      <option 
-                        key={voice.id} 
-                        value={voice.id}
-                        style={{
-                          background: '#1a1a2e',
-                          color: 'rgba(255, 255, 255, 0.9)'
-                        }}
-                      >
-                        {getCountryFlag(voice.accent)} {voice.name} ({voice.gender})
-                      </option>
-                    ))}
-                  </optgroup>
-                );
-              })}
+              {filteredVoices.map((voice) => (
+                <option 
+                  key={voice.id} 
+                  value={voice.id}
+                  style={{
+                    background: '#1a1a2e',
+                    color: 'rgba(255, 255, 255, 0.9)'
+                  }}
+                >
+                  {getCountryFlag(voice)} {voice.name} ({voice.gender}) - Best for {settings.category}
+                </option>
+              ))}
             </select>
           )}
         </div>
