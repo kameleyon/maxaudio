@@ -4,13 +4,12 @@ const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 interface GenerateContentParams {
   content: string;
-  tone: string;
   category: string;
 }
 
-export async function generateContent({ content, tone, category }: GenerateContentParams): Promise<string> {
+export async function generateContent({ content, category }: GenerateContentParams): Promise<string> {
   try {
-    const systemPrompt = `You are a natural, engaging speaker delivering a 13-15 minute ${category} talk in a ${tone} tone. 
+    const systemPrompt = `You are a natural, engaging speaker delivering a 13-15 minute ${category} talk. 
 You're speaking directly to your audience, sharing your thoughts and insights in a way that feels completely authentic and unscripted.
 
 Your speaking style:
