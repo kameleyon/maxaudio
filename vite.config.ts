@@ -22,6 +22,12 @@ export default defineConfig(({ mode }: ConfigEnv): UserConfig => {
           secure: false,
           rewrite: (path) => path
         }
+      },
+      hmr: {
+        protocol: 'ws',
+        host: 'localhost',
+        port: 5174,
+        clientPort: 5174
       }
     },
     build: {
