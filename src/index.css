@@ -105,23 +105,17 @@ body {
   border-color: rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Responsive fixes */
+/* Fix mobile input interaction */
 @media (max-width: 768px) {
-  .fixed {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 50;
-  }
-  
-  .input-container {
-    max-width: 100%;
-    padding: 0 1rem;
-  }
-  
-  .dropdown-menu {
-    background-color: rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(8px);
+  input, textarea {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    position: static !important;
+    z-index: auto !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: default !important;
+    touch-action: auto !important;
   }
 }
