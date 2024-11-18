@@ -158,10 +158,11 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-white/90">Settings</h2>
+      {/*<h2 className="text-lg font-semibold text-white/90">Settings</h2>*/}
       
       <div className="space-y-4">
         {/* Audience Selection */}
+        <label className="text-sm font-medium text-white/80">Choose your audience</label>
         <div>
           <select
             value={settings.category}
@@ -217,7 +218,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
                     color: 'rgba(255, 255, 255, 0.9)'
                   }}
                 >
-                  {getCountryFlag(voice)} {voice.name} ({voice.gender}) - Best for {settings.category}
+                  {getCountryFlag(voice)} {voice.name} ({voice.gender})
                 </option>
               ))}
             </select>
