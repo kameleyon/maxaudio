@@ -17,6 +17,8 @@ describe('ProtectedRoute', () => {
     const mockAuthContext = {
       isAuthenticated: false,
       isLoading: true,
+      token: null,
+      getToken: () => null,
       user: null,
       login: async () => {},
       logout: () => {},
@@ -40,6 +42,8 @@ describe('ProtectedRoute', () => {
     const mockAuthContext = {
       isAuthenticated: false,
       isLoading: false,
+      token: null,
+      getToken: () => null,
       user: null,
       login: async () => {},
       logout: () => {},
@@ -63,6 +67,8 @@ describe('ProtectedRoute', () => {
     const mockAuthContext = {
       isAuthenticated: true,
       isLoading: false,
+      token: 'mock-token',
+      getToken: () => 'mock-token',
       user: {
         id: '123',
         email: 'user@example.com',

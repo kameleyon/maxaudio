@@ -23,6 +23,8 @@ describe('Authentication Integration', () => {
     const mockAuthContext = {
       isAuthenticated: true,
       isLoading: false,
+      token: 'mock-token',
+      getToken: () => 'mock-token',
       user: {
         id: '123',
         email: 'test@example.com',
@@ -55,6 +57,8 @@ describe('Authentication Integration', () => {
     const mockAuthContext = {
       isAuthenticated: false,
       isLoading: false,
+      token: null,
+      getToken: () => null,
       user: null,
       login: async () => {},
       logout: () => {},
