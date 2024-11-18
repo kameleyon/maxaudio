@@ -1,6 +1,6 @@
 [build]
   command = "npm run build-only"
-  publish = "build"
+  publish = "build-only"
   functions = "netlify/functions"
 
 [functions]
