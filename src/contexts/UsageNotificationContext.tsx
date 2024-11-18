@@ -96,7 +96,6 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     if (loading || !stats) return;
 
-    // Character usage warnings
     const characterUsagePercent = (stats.current.charactersUsed / stats.limits.charactersPerMonth) * 100;
     if (characterUsagePercent >= 75) {
       const notification = notificationService.createUsageNotification(
@@ -107,7 +106,6 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
       addNotification(notification);
     }
 
-    // Voice clone warnings
     const cloneUsagePercent = (stats.current.voiceClones / stats.limits.voiceClones) * 100;
     if (cloneUsagePercent >= 75) {
       const notification = notificationService.createUsageNotification(
@@ -118,7 +116,6 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
       addNotification(notification);
     }
 
-    // Rate limit warnings
     const rateUsagePercent = (stats.current.requestsThisMinute / stats.limits.requestsPerMinute) * 100;
     if (rateUsagePercent >= 90) {
       const notification = notificationService.createUsageNotification(
@@ -128,7 +125,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
       );
       addNotification(notification);
     }
-  }, [stats, loading]);
+  }, [stats, loading, addNotification, isCategoryEnabled]);
 
   // Clean up old notifications based on persistence duration
   useEffect(() => {

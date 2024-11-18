@@ -79,7 +79,7 @@ export const useUsageStats = () => {
     isLoading: loading, 
     error,
     refetch
-  } = useQuery<UsageStats>({
+  } = useQuery<UsageStats, Error>({
     queryKey: ['usageStats'],
     queryFn: fetchUsageStats,
     refetchInterval: 60000,
