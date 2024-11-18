@@ -1,59 +1,122 @@
-export const subscriptionTiers = {
-  free: {
+export interface SubscriptionTier {
+  id: string;
+  name: string;
+  monthlyPrice: number;
+  yearlyPrice: number;
+  limits: {
+    charactersPerMonth: number;
+    voiceClones: number;
+    requestsPerMinute: number;
+  };
+  features: string[];
+  addons: {
+    tokens: {
+      price: number;
+      amount: number;
+    };
+    voiceClones: {
+      available: boolean;
+      price: number;
+      maxAdditional: number;
+    };
+    priority: string;
+  };
+}
+
+export const subscriptionTiers: SubscriptionTier[] = [
+  {
+    id: 'free',
     name: 'Free',
-    price: 0,
-    features: {
+    monthlyPrice: 0,
+    yearlyPrice: 0,
+    limits: {
       charactersPerMonth: 50000,
-      maxAudioLength: 10, // minutes
-      concurrentProjects: 2,
-      voiceOptions: ['Google TTS Basic Voices'],
-      downloadFormats: ['MP3'],
-      support: 'Community',
+      voiceClones: 0,
+      requestsPerMinute: 10
+    },
+    features: [
+      'Basic voice options',
+      'MP3 downloads',
+      'Community support',
+      'Basic text processing',
+      '10-minute max audio length'
+    ],
+    addons: {
+      tokens: {
+        price: 5,
+        amount: 50000
+      },
+      voiceClones: {
+        available: false,
+        price: 0,
+        maxAdditional: 0
+      },
+      priority: 'Standard processing'
     }
   },
-  pro: {
-    name: 'Pro',
-    price: 19.99,
-    features: {
+  {
+    id: 'professional',
+    name: 'Professional',
+    monthlyPrice: 29.99,
+    yearlyPrice: 287.90, // 20% discount
+    limits: {
       charactersPerMonth: 500000,
-      maxAudioLength: 30, // minutes
-      concurrentProjects: 10,
-      voiceOptions: [
-        'Google TTS Premium Voices',
-        'ElevenLabs Natural Voices',
-        'Emotion Analysis'
-      ],
-      downloadFormats: ['MP3', 'WAV', 'OGG'],
-      support: 'Email Support',
-      additionalFeatures: [
-        'Voice Customization',
-        'Batch Processing',
-        'Priority Queue'
-      ]
+      voiceClones: 3,
+      requestsPerMinute: 30
+    },
+    features: [
+      'Premium voice options',
+      'All download formats',
+      'Email support',
+      'Voice customization',
+      'Batch processing',
+      'Priority queue',
+      'Advanced text processing'
+    ],
+    addons: {
+      tokens: {
+        price: 10,
+        amount: 100000
+      },
+      voiceClones: {
+        available: true,
+        price: 9.99,
+        maxAdditional: 5
+      },
+      priority: 'Priority processing'
     }
   },
-  enterprise: {
+  {
+    id: 'enterprise',
     name: 'Enterprise',
-    price: 99.99,
-    features: {
-      charactersPerMonth: 'Unlimited',
-      maxAudioLength: 120, // minutes
-      concurrentProjects: 'Unlimited',
-      voiceOptions: [
-        'All Pro Features',
-        'Custom Voice Training',
-        'Advanced Emotion Processing',
-        'Azure Neural Voices'
-      ],
-      downloadFormats: ['MP3', 'WAV', 'OGG', 'FLAC'],
-      support: '24/7 Priority Support',
-      additionalFeatures: [
-        'All Pro Features',
-        'API Access',
-        'Custom Integration',
-        'SLA Guarantee',
-        'Dedicated Account Manager'
-      ]
+    monthlyPrice: 99.99,
+    yearlyPrice: 959.90, // 20% discount
+    limits: {
+      charactersPerMonth: 2000000,
+      voiceClones: 10,
+      requestsPerMinute: 100
+    },
+    features: [
+      'All Professional features',
+      'Custom voice training',
+      'Advanced emotion processing',
+      'API access',
+      'Custom integration',
+      'SLA guarantee',
+      'Dedicated support',
+      'Unlimited audio length'
+    ],
+    addons: {
+      tokens: {
+        price: 15,
+        amount: 200000
+      },
+      voiceClones: {
+        available: true,
+        price: 19.99,
+        maxAdditional: 20
+      },
+      priority: 'Highest priority'
     }
   }
-};
+];
