@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const openSourceTTS = require('../services/opensource-tts.service');
 const googleTTS = require('../services/tts.service');
+const playHT = require('../services/playht.service');
 const { requireAuth } = require('../middleware/auth');
 
 // Generate audio (protected)
@@ -31,7 +32,10 @@ router.post('/generate', requireAuth, async (req, res) => {
 
     // Determine which service to use based on voice ID prefix
     let audioContent;
-    if (voice.startsWith('en-')) {
+    if (voice.startsWith('playht-')) {
+      // Use PlayHT for voices starting with 'playht-'
+      audioContent = await playHT.synthesizeSpeech(text, voice.replace('playht-', ''));
+    } else if (voice.startsWith('en-')) {
       // Use Google TTS for voices starting with 'en-'
       audioContent = await googleTTS.generateAudio(text, {
         language,
@@ -81,15 +85,25 @@ router.post('/generate', requireAuth, async (req, res) => {
 // Get available voices (public)
 router.get('/voices', async (req, res) => {
   try {
-    // Get voices from both services
-    const [googleVoices, openSourceVoices] = await Promise.all([
+    // Get voices from all services
+    const [googleVoices, openSourceVoices, playHTVoices] = await Promise.all([
       googleTTS.getVoices(),
-      openSourceTTS.getVoices()
+      openSourceTTS.getVoices(),
+      playHT.getVoices()
     ]);
 
-    // Format Google voices to match the expected structure
+    // Format PlayHT voices
+    const formattedPlayHTVoices = playHTVoices.map(voice => ({
+      id: `playht-${voice.id}`,
+      name: voice.name,
+      flag: '🎭', // PlayHT icon
+      gender: voice.gender || 'Unknown',
+      type: 'PlayHT'
+    }));
+
+    // Format Google voices
     const formattedGoogleVoices = googleVoices
-      .filter(voice => voice.languageCodes[0].startsWith('en-')) // Only include English voices
+      .filter(voice => voice.languageCodes[0].startsWith('en-'))
       .map(voice => ({
         id: voice.name,
         name: `${voice.name.split('-').pop()} (${voice.languageCodes[0].split('-')[1]})`,
@@ -127,8 +141,9 @@ router.get('/voices', async (req, res) => {
       }
     ];
 
-    // Combine all voices
+    // Combine all voices, putting PlayHT voices first
     const allVoices = [
+      ...formattedPlayHTVoices,
       ...formattedGoogleVoices,
       ...fastPitchVoices,
       ...yourTTSVoices,

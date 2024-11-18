@@ -17,7 +17,6 @@ interface GenerateContentParams {
 
 interface AudioGenerateParams {
   text: string;
-  language?: 'en-GB' | 'en-US';
   voice: string;
   pitch?: number;
   speakingRate?: number;
@@ -30,7 +29,7 @@ export function Studio() {
     category: 'podcast',
     tone: 'professional',
     voiceType: 'library',
-    voice: 'en-US-Neural2-D', // Default to male voice
+    voice: 'playht-default', // Default to PlayHT voice
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -80,7 +79,6 @@ export function Studio() {
     try {
       const params: AudioGenerateParams = {
         text: textContent,
-        language: settings.voice.startsWith('en-GB') ? 'en-GB' : 'en-US',
         voice: settings.voice,
         publish
       };

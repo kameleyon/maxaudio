@@ -72,7 +72,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const handleVoiceTypeChange = (type: 'library' | 'clone') => {
     const filteredVoices = voices.filter(voice => 
       type === 'library' 
-        ? ['Google Neural', 'FastPitch', 'Coqui'].includes(voice.type)
+        ? ['PlayHT', 'FastPitch', 'Coqui'].includes(voice.type)
         : voice.type === 'Clone'
     );
 
@@ -112,7 +112,7 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   // Filter voices based on selected type
   const filteredVoices = voices.filter(voice => 
     settings.voiceType === 'library' 
-      ? ['Google Neural', 'FastPitch', 'Coqui'].includes(voice.type)
+      ? ['PlayHT', 'FastPitch', 'Coqui'].includes(voice.type)
       : voice.type === 'Clone'
   );
 
