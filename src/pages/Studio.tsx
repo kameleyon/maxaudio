@@ -11,7 +11,6 @@ import { AxiosError } from 'axios';
 
 interface GenerateContentParams {
   content: string;
-  tone: string;
   category: string;
 }
 
@@ -26,10 +25,9 @@ interface AudioGenerateParams {
 export function Studio() {
   const [content, setContent] = useState('');
   const [settings, setSettings] = useState<ContentSettingsType>({
-    category: 'podcast',
-    tone: 'professional',
+    category: 'social-media',
     voiceType: 'library',
-    voice: 'playht-default', // Default to PlayHT voice
+    voice: 'playht-default'
   });
 
   const [isGenerating, setIsGenerating] = useState(false);
@@ -58,8 +56,7 @@ export function Studio() {
     try {
       const params: GenerateContentParams = {
         content,
-        tone: settings.tone,
-        category: settings.category,
+        category: settings.category
       };
       
       const generatedContent = await generateContent(params);
@@ -148,10 +145,10 @@ export function Studio() {
   }, []);
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 px-4 md:px-0">
+    <div className="max-w-6xl mx-auto space-y-6 p-4 md:p-6">
       <div>
         <h1 className="text-2xl md:text-3xl font-bold mb-4">Studio</h1>
-        <div className="p-3 bg-white/5 rounded-lg border border-white/10 overflow-x-auto">
+        <div className="p-3 bg-white/5 rounded-lg border border-white/10">
           <p className="text-white/60 text-sm">How does it work? Begin with content creation...</p>
         </div>
       </div>
@@ -159,39 +156,51 @@ export function Studio() {
       {error && <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400">{error}</div>}
       {publishSuccessMessage && <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400">{publishSuccessMessage}</div>}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           <ContentInput content={content} onChange={setContent} />
           <ContentSettings settings={settings} onChange={setSettings} />
           <button
             onClick={handleGenerate}
             disabled={!content || isGenerating}
-            className="w-full px-6 py-3 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-6 py-3 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium"
           >
             {isGenerating ? 'Generating Content...' : 'Generate'}
           </button>
         </div>
 
-        <div className="h-full overflow-y-auto bg-white/5 rounded-lg border border-white/10">
+        <div className="bg-white/5 rounded-lg border border-white/10 overflow-hidden">
           {isGenerating ? (
-            <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin" /></div>
+            <div className="flex items-center justify-center h-[300px]">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
           ) : transcript ? (
             <TranscriptEditor transcript={transcript} onChange={setTranscript} onRegenerate={generateAudio} />
           ) : (
-            <div className="flex items-center justify-center h-full"><p className="text-white/60">Generated content will appear here</p></div>
+            <div className="flex items-center justify-center h-full">
+              <p className="text-white/60 mt-4">Generated content will appear here</p>
+            </div>
           )}
         </div>
       </div>
 
       {transcript && (
-        <div className="p-4 bg-white/5 rounded-lg border border-white/10">
+        <div className="p-6 bg-white/5 rounded-lg border border-white/10">
           {isGeneratingAudio ? (
-            <div className="flex items-center justify-center gap-2 text-white/60 py-4"><Loader2 className="w-6 h-6 animate-spin" />Generating audio...</div>
+            <div className="flex items-center justify-center gap-2 text-white/60 py-4">
+              <Loader2 className="w-6 h-6 animate-spin" />
+              <span>Generating audio... can take up to 3-5min</span>
+            </div>
           ) : audioUrl ? (
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold">Generated Audio</h2>
-                <button onClick={handlePublish} className="px-4 py-2 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors">Publish</button>
+                <button 
+                  onClick={handlePublish} 
+                  className="px-6 py-2 bg-[#63248d] hover:bg-[#63248d]/80 rounded-lg transition-colors text-white font-medium"
+                >
+                  Publish
+                </button>
               </div>
               <AudioPlayer url={audioUrl} label={generateFileName(transcript)} />
             </div>
