@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Upload, Loader2, Edit2, Save, RotateCcw, MoreVertical } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { ContentInput } from '../components/studio/ContentInput';
 import { ContentSettings, ContentSettingsType } from '../components/studio/ContentSettings';
 import { TranscriptEditor } from '../components/studio/TranscriptEditor';
@@ -177,7 +177,7 @@ export function Studio() {
           ) : transcript ? (
             <TranscriptEditor transcript={transcript} onChange={setTranscript} onRegenerate={generateAudio} />
           ) : (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full/90">
               <p className="text-white/60 mt-4">Generated content will appear here</p>
             </div>
           )}
