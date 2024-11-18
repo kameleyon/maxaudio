@@ -19,6 +19,14 @@ interface VoiceOption {
   flag: string;
   gender: string;
   type: string;
+  accent: string;
+}
+
+interface AudienceCategory {
+  id: string;
+  name: string;
+  description: string;
+  voiceTypes: string[];
 }
 
 export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
@@ -26,26 +34,36 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const audiences = [
+  const audiences: AudienceCategory[] = [
     {
-      name: 'Choose your udience',
-      description: ''
+      id: 'default',
+      name: 'Choose your audience',
+      description: '',
+      voiceTypes: []
     },
     {
+      id: 'social-media',
       name: 'Social Media-Friendly, Podcast',
-      description: 'short, engaging, casual, conversational'
+      description: 'short, engaging, casual, conversational',
+      voiceTypes: ['casual', 'conversational', 'friendly']
     },
     {
+      id: 'educational',
       name: 'Educational, Teaching, Training',
-      description: 'structured, informative, accessible'
+      description: 'structured, informative, accessible',
+      voiceTypes: ['professional', 'clear', 'authoritative']
     },
     {
+      id: 'storytelling',
       name: 'Storytelling, Narrative, Entertaining',
-      description: 'compelling, narrative-driven, engaging, captivating'
+      description: 'compelling, narrative-driven, engaging, captivating',
+      voiceTypes: ['expressive', 'dramatic', 'engaging']
     },
     {
+      id: 'deep-content',
       name: 'Deep/Debate Content, Motivational, TedTalk',
-      description: 'thought-provoking, insightful, balanced'
+      description: 'thought-provoking, insightful, balanced',
+      voiceTypes: ['authoritative', 'professional', 'confident']
     }
   ];
 
@@ -120,21 +138,55 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
     text-[#63248d]
   `;
 
-  // Filter voices based on selected type
-  const filteredVoices = voices.filter(voice => 
-    settings.voiceType === 'library' 
-      ? ['PlayHT', 'FastPitch', 'Coqui'].includes(voice.type)
-      : voice.type === 'Clone'
-  );
+  // Filter voices based on selected type and audience
+  const getVoicesForAudience = (audienceId: string) => {
+    const audience = audiences.find(a => a.id === audienceId);
+    if (!audience || audienceId === 'default') return [];
 
-  // Group voices by type for better organization
-  const groupedVoices = filteredVoices.reduce((acc, voice) => {
-    if (!acc[voice.type]) {
-      acc[voice.type] = [];
-    }
-    acc[voice.type].push(voice);
-    return acc;
-  }, {} as Record<string, VoiceOption[]>);
+    return voices.filter(voice => {
+      const matchesType = settings.voiceType === 'library' 
+        ? ['PlayHT', 'FastPitch', 'Coqui'].includes(voice.type)
+        : voice.type === 'Clone';
+
+      // Map accent to appropriate audience categories
+      const voiceStyle = getVoiceStyle(voice.accent);
+      return matchesType && audience.voiceTypes.includes(voiceStyle);
+    });
+  };
+
+  // Helper function to map voice accent to style
+  const getVoiceStyle = (accent: string): string => {
+    const accentMap: { [key: string]: string } = {
+      'american': 'casual',
+      'british': 'professional',
+      'australian': 'friendly',
+      'indian': 'clear',
+      'african': 'expressive',
+      'irish': 'engaging',
+      'scottish': 'authoritative',
+      'canadian': 'conversational',
+      'newzealand': 'confident',
+      'southafrican': 'dramatic'
+    };
+    return accentMap[accent.toLowerCase()] || 'casual';
+  };
+
+  // Get country flag emoji based on accent
+  const getCountryFlag = (accent: string): string => {
+    const flagMap: { [key: string]: string } = {
+      'american': '🇺🇸',
+      'british': '🇬🇧',
+      'australian': '🇦🇺',
+      'indian': '🇮🇳',
+      'african': '🌍',
+      'irish': '🇮🇪',
+      'scottish': '🏴󠁧󠁢󠁳󠁣󠁴󠁿',
+      'canadian': '🇨🇦',
+      'newzealand': '🇳🇿',
+      'southafrican': '🇿🇦'
+    };
+    return flagMap[accent.toLowerCase()] || '🌐';
+  };
 
   return (
     <div className="space-y-4">
@@ -143,7 +195,6 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
       <div className="space-y-4">
         {/* Audience Selection */}
         <div>
-          
           <select
             value={settings.category}
             onChange={(e) => handleSettingChange('category', e.target.value)}
@@ -151,8 +202,8 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
           >
             {audiences.map((audience) => (
               <option 
-                key={audience.name} 
-                value={audience.name.toLowerCase()} 
+                key={audience.id} 
+                value={audience.id} 
                 className={optionClasses}
               >
                 {audience.name}
@@ -189,30 +240,35 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
                 color: 'rgba(255, 255, 255, 0.9)'
               }}
             >
-              {Object.entries(groupedVoices).map(([type, voices]) => (
-                <optgroup 
-                  key={type} 
-                  label={type}
-                  style={{
-                    background: '#1a1a2e',
-                    color: '#63248d',
-                    fontWeight: '600'
-                  }}
-                >
-                  {voices.map((voice) => (
-                    <option 
-                      key={voice.id} 
-                      value={voice.id}
-                      style={{
-                        background: '#1a1a2e',
-                        color: 'rgba(255, 255, 255, 0.9)'
-                      }}
-                    >
-                      {voice.flag} {voice.name} ({voice.gender})
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
+              {audiences.map((audience) => {
+                const audienceVoices = getVoicesForAudience(audience.id);
+                if (audienceVoices.length === 0) return null;
+
+                return (
+                  <optgroup 
+                    key={audience.id} 
+                    label={audience.name}
+                    style={{
+                      background: '#1a1a2e',
+                      color: '#63248d',
+                      fontWeight: '600'
+                    }}
+                  >
+                    {audienceVoices.map((voice) => (
+                      <option 
+                        key={voice.id} 
+                        value={voice.id}
+                        style={{
+                          background: '#1a1a2e',
+                          color: 'rgba(255, 255, 255, 0.9)'
+                        }}
+                      >
+                        {getCountryFlag(voice.accent)} {voice.name} ({voice.gender})
+                      </option>
+                    ))}
+                  </optgroup>
+                );
+              })}
             </select>
           )}
         </div>
