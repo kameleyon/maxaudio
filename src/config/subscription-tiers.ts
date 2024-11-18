@@ -3,6 +3,8 @@ export interface SubscriptionTier {
   name: string;
   monthlyPrice: number;
   yearlyPrice: number;
+  stripePriceId: string;
+  stripeYearlyPriceId: string;
   limits: {
     charactersPerMonth: number;
     voiceClones: number;
@@ -29,6 +31,8 @@ export const subscriptionTiers: SubscriptionTier[] = [
     name: 'Free',
     monthlyPrice: 0,
     yearlyPrice: 0,
+    stripePriceId: 'price_free_monthly',
+    stripeYearlyPriceId: 'price_free_yearly',
     limits: {
       charactersPerMonth: 50000,
       voiceClones: 0,
@@ -59,6 +63,8 @@ export const subscriptionTiers: SubscriptionTier[] = [
     name: 'Professional',
     monthlyPrice: 29.99,
     yearlyPrice: 287.90, // 20% discount
+    stripePriceId: 'price_professional_monthly',
+    stripeYearlyPriceId: 'price_professional_yearly',
     limits: {
       charactersPerMonth: 500000,
       voiceClones: 3,
@@ -91,6 +97,8 @@ export const subscriptionTiers: SubscriptionTier[] = [
     name: 'Enterprise',
     monthlyPrice: 99.99,
     yearlyPrice: 959.90, // 20% discount
+    stripePriceId: 'price_enterprise_monthly',
+    stripeYearlyPriceId: 'price_enterprise_yearly',
     limits: {
       charactersPerMonth: 2000000,
       voiceClones: 10,

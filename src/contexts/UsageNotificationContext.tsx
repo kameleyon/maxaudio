@@ -27,7 +27,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
   const [notifications, setNotifications] = useState<UsageNotification[]>(() => 
     notificationService.getStoredNotifications()
   );
-  const { rawStats } = useUsageStats();
+  const { stats } = useUsageStats();
   const {
     isCategoryEnabled,
     shouldPlaySound,
@@ -94,10 +94,10 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
 
   // Check usage limits and add warnings
   useEffect(() => {
-    if (!rawStats) return;
+    if (!stats) return;
 
     // Character usage warnings
-    const characterUsagePercent = (rawStats.current.charactersUsed / rawStats.limits.charactersPerMonth) * 100;
+    const characterUsagePercent = (stats.current.charactersUsed / stats.limits.charactersPerMonth) * 100;
     if (characterUsagePercent >= 75) {
       const notification = notificationService.createUsageNotification(
         characterUsagePercent >= 90 ? 'error' : 'warning',
@@ -108,7 +108,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
     }
 
     // Voice clone warnings
-    const cloneUsagePercent = (rawStats.current.voiceClones / rawStats.limits.voiceClones) * 100;
+    const cloneUsagePercent = (stats.current.voiceClones / stats.limits.voiceClones) * 100;
     if (cloneUsagePercent >= 75) {
       const notification = notificationService.createUsageNotification(
         cloneUsagePercent >= 90 ? 'error' : 'warning',
@@ -119,7 +119,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
     }
 
     // Rate limit warnings
-    const rateUsagePercent = (rawStats.current.requestsThisMinute / rawStats.limits.requestsPerMinute) * 100;
+    const rateUsagePercent = (stats.current.requestsThisMinute / stats.limits.requestsPerMinute) * 100;
     if (rateUsagePercent >= 90) {
       const notification = notificationService.createUsageNotification(
         'warning',
@@ -128,7 +128,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
       );
       addNotification(notification);
     }
-  }, [rawStats]);
+  }, [stats]);
 
   // Clean up old notifications based on persistence duration
   useEffect(() => {

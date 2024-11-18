@@ -1,7 +1,7 @@
 import { X, Copy, Check } from 'lucide-react'
 import { useState } from 'react'
 import type { UsageNotification } from '../../services/notification.service'
-import { format } from 'date-fns'
+import { format as formatDate } from 'date-fns'
 
 interface ExportPreviewModalProps {
   isOpen: boolean
@@ -51,7 +51,7 @@ export function ExportPreviewModal({
         const value = notification[col as keyof UsageNotification]
         
         if (col === 'timestamp' || col === 'readTimestamp') {
-          return value ? `"${format(value as number, 'yyyy-MM-dd HH:mm:ss')}"` : '""'
+          return value ? `"${formatDate(value as number, 'yyyy-MM-dd HH:mm:ss')}"` : '""'
         }
         
         if (typeof value === 'string') {
