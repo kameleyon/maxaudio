@@ -4,7 +4,6 @@ import api from '../../services/api';
 
 export interface ContentSettingsType {
   category: string;
-  tone: string;
   voiceType: 'library' | 'clone';
   voice: string;
 }
@@ -27,15 +26,27 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const categories = [
-    'Podcast', 'TED Talk', 'News', 'Narrative', 'Class',
-    'Advertisement', 'Comedy', 'Motivational', 'Meditation',
-    'Mantra', 'Kids Content'
-  ];
-
-  const tones = [
-    'Casual', 'Professional', 'Sarcastic', 'Energetic',
-    'Angry', 'Sad', 'Excited', 'Calm', 'Detached'
+  const audiences = [
+    {
+      name: 'Choose your udience',
+      description: ''
+    },
+    {
+      name: 'Social Media-Friendly, Podcast',
+      description: 'short, engaging, casual, conversational'
+    },
+    {
+      name: 'Educational, Teaching, Training',
+      description: 'structured, informative, accessible'
+    },
+    {
+      name: 'Storytelling, Narrative, Entertaining',
+      description: 'compelling, narrative-driven, engaging, captivating'
+    },
+    {
+      name: 'Deep/Debate Content, Motivational, TedTalk',
+      description: 'thought-provoking, insightful, balanced'
+    }
   ];
 
   useEffect(() => {
@@ -130,37 +141,21 @@ export function ContentSettings({ settings, onChange }: ContentSettingsProps) {
       <h2 className="text-lg font-semibold text-white/90">Settings</h2>
       
       <div className="space-y-4">
-        {/* Category Selection */}
+        {/* Audience Selection */}
         <div>
-          <label className="block text-sm font-medium mb-2 text-white/80">
-            Category
-          </label>
+          
           <select
             value={settings.category}
             onChange={(e) => handleSettingChange('category', e.target.value)}
             className={selectClasses}
           >
-            {categories.map((category) => (
-              <option key={category} value={category.toLowerCase()} className={optionClasses}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Tone Selection */}
-        <div>
-          <label className="block text-sm font-medium mb-2 text-white/80">
-            Tone
-          </label>
-          <select
-            value={settings.tone}
-            onChange={(e) => handleSettingChange('tone', e.target.value)}
-            className={selectClasses}
-          >
-            {tones.map((tone) => (
-              <option key={tone} value={tone.toLowerCase()} className={optionClasses}>
-                {tone}
+            {audiences.map((audience) => (
+              <option 
+                key={audience.name} 
+                value={audience.name.toLowerCase()} 
+                className={optionClasses}
+              >
+                {audience.name}
               </option>
             ))}
           </select>
