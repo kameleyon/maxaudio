@@ -1,8 +1,13 @@
 import axios from 'axios';
 import { authService } from './auth.service';
 
+const isProd = import.meta.env.PROD;
+const baseURL = isProd 
+  ? 'https://audiomax.netlify.app/.netlify/functions'
+  : 'http://localhost:5001/api';
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001/api',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -66,8 +71,12 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
+        const refreshUrl = isProd 
+          ? 'https://audiomax.netlify.app/.netlify/functions/auth/refresh'
+          : `${baseURL}/auth/refresh`;
+
         const response = await axios.post(
-          `${import.meta.env.VITE_API_URL || 'http://localhost:5001/api'}/auth/refresh`,
+          refreshUrl,
           {},
           { withCredentials: true }
         );
