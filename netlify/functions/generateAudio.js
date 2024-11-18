@@ -1,112 +1,36 @@
-import { TextToSpeechClient } from '@google-cloud/text-to-speech';
-import path from 'path';
-import fs from 'fs';
+import axios from 'axios';
 
-// Initialize Text-to-Speech client with proper credential handling
-function initializeTextToSpeechClient() {
+async function generateAudioWithPlayHT(text, voice) {
   try {
-    // Read credentials from file instead of environment variable
-    const credentialsPath = path.join(__dirname, 'google-credentials.json');
-    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
-    
-    if (!credentials.client_email || !credentials.private_key) {
-      throw new Error('Invalid Google credentials format');
-    }
-
-    return new TextToSpeechClient({
-      credentials: {
-        client_email: credentials.client_email,
-        private_key: credentials.private_key.replace(/\\n/g, '\n'),
-        project_id: credentials.project_id
-      }
-    });
-  } catch (error) {
-    console.error('Failed to initialize Google client:', error);
-    throw error;
-  }
-}
-
-// Split text into smaller chunks efficiently
-function splitTextIntoChunks(text) {
-  const MAX_CHUNK_SIZE = 3000; // Smaller chunks for faster processing
-  const chunks = [];
-  
-  // Split by paragraphs first
-  const paragraphs = text.split(/\n\n+/);
-  let currentChunk = '';
-  
-  for (const paragraph of paragraphs) {
-    // If paragraph is too long, split by sentences
-    if (paragraph.length > MAX_CHUNK_SIZE) {
-      const sentences = paragraph.match(/[^.!?]+[.!?]+/g) || [paragraph];
-      for (const sentence of sentences) {
-        if (currentChunk.length + sentence.length > MAX_CHUNK_SIZE) {
-          if (currentChunk) {
-            chunks.push(currentChunk.trim());
-          }
-          currentChunk = sentence;
-        } else {
-          currentChunk += (currentChunk ? ' ' : '') + sentence;
+    const response = await axios.post(
+      'https://api.play.ht/api/v2/tts',
+      {
+        text,
+        voice,
+        quality: 'premium'
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${process.env.PLAYHT_SECRET_KEY}`,
+          'X-User-ID': process.env.PLAYHT_USER_ID,
+          'Content-Type': 'application/json'
         }
       }
-    } else {
-      if (currentChunk.length + paragraph.length > MAX_CHUNK_SIZE) {
-        chunks.push(currentChunk.trim());
-        currentChunk = paragraph;
-      } else {
-        currentChunk += (currentChunk ? '\n\n' : '') + paragraph;
-      }
-    }
+    );
+
+    // Get the audio URL from the response
+    const audioUrl = response.data.url;
+
+    // Download the audio file
+    const audioResponse = await axios.get(audioUrl, {
+      responseType: 'arraybuffer'
+    });
+
+    return audioResponse.data;
+  } catch (error) {
+    console.error('PlayHT API Error:', error);
+    throw error;
   }
-  
-  if (currentChunk) {
-    chunks.push(currentChunk.trim());
-  }
-
-  return chunks;
-}
-
-// Process chunks in parallel for better performance
-async function processChunksInParallel(chunks, client, voiceConfig) {
-  const chunkPromises = chunks.map(async (chunk, index) => {
-    console.log(`Processing chunk ${index + 1}/${chunks.length}, length: ${chunk.length}`);
-    
-    const request = {
-      input: { text: chunk },
-      voice: voiceConfig,
-      audioConfig: {
-        audioEncoding: "MP3",
-        speakingRate: 1.0  // Normal speed for better quality
-      },
-    };
-
-    try {
-      const [response] = await client.synthesizeSpeech(request);
-      if (!response || !response.audioContent) {
-        throw new Error(`No audio content received for chunk ${index + 1}`);
-      }
-      return response.audioContent;
-    } catch (error) {
-      console.error(`Error processing chunk ${index + 1}:`, error);
-      throw error;
-    }
-  });
-
-  return Promise.all(chunkPromises);
-}
-
-// Combine audio buffers efficiently
-function combineAudioBuffers(buffers) {
-  const totalLength = buffers.reduce((acc, buffer) => acc + buffer.length, 0);
-  const combined = Buffer.alloc(totalLength);
-  let offset = 0;
-  
-  for (const buffer of buffers) {
-    buffer.copy(combined, offset);
-    offset += buffer.length;
-  }
-  
-  return combined;
 }
 
 export async function handler(event, context) {
@@ -118,9 +42,7 @@ export async function handler(event, context) {
   }
 
   try {
-    console.time('totalProcessing');
-    const client = initializeTextToSpeechClient();
-    const { text, languageCode = "en-US", voiceName = "en-US-Studio-M" } = JSON.parse(event.body);
+    const { text, voice = "larry" } = JSON.parse(event.body);
 
     if (!text) {
       return {
@@ -130,35 +52,20 @@ export async function handler(event, context) {
     }
 
     console.log('Processing text of length:', text.length);
-    console.time('textProcessing');
-    
-    const chunks = splitTextIntoChunks(text);
-    console.log('Split into', chunks.length, 'chunks');
-    console.timeEnd('textProcessing');
-
-    const voiceConfig = {
-      languageCode,
-      name: voiceName,
-    };
-
     console.time('audioProcessing');
-    const audioBuffers = await processChunksInParallel(chunks, client, voiceConfig);
+
+    const audioBuffer = await generateAudioWithPlayHT(text, voice);
+
     console.timeEnd('audioProcessing');
-    
-    console.time('combining');
-    const combinedAudio = combineAudioBuffers(audioBuffers);
-    console.log('Final audio size:', combinedAudio.length);
-    console.timeEnd('combining');
-    
-    console.timeEnd('totalProcessing');
+    console.log('Audio generated successfully');
 
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
-        'Content-Length': combinedAudio.length.toString()
+        'Content-Length': audioBuffer.length.toString()
       },
-      body: combinedAudio.toString('base64'),
+      body: Buffer.from(audioBuffer).toString('base64'),
       isBase64Encoded: true
     };
 

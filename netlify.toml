@@ -5,18 +5,13 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["@google-cloud/text-to-speech"]
+  external_node_modules = ["@google-cloud/text-to-speech", "express", "mongodb"]
 
 [[redirects]]
-  from = "/api/audio/generate"
-  to = "/.netlify/functions/generateAudio"
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
   status = 200
   force = true
-
-[[redirects]]
-  from = "/favicon.ico"
-  to = "/favicon.ico"
-  status = 200
 
 [[redirects]]
   from = "/*"
@@ -29,13 +24,3 @@
 [build.processing.css]
   bundle = true
   minify = true
-
-[build.processing.js]
-  bundle = true
-  minify = true
-
-[build.processing.html]
-  pretty_urls = true
-
-[build.processing.images]
-  compress = true
