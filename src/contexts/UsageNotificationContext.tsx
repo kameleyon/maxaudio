@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { useUsageStats } from '../hooks/useUsageStats';
+import { useUsageStats, type UsageStats } from '../hooks/useUsageStats';
 import { notificationService, type UsageNotification } from '../services/notification.service';
 import { useNotificationPreferences } from '../hooks/useNotificationPreferences';
 
@@ -27,7 +27,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
   const [notifications, setNotifications] = useState<UsageNotification[]>(() => 
     notificationService.getStoredNotifications()
   );
-  const { stats } = useUsageStats();
+  const { stats, loading } = useUsageStats();
   const {
     isCategoryEnabled,
     shouldPlaySound,
@@ -94,7 +94,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
 
   // Check usage limits and add warnings
   useEffect(() => {
-    if (!stats) return;
+    if (loading || !stats) return;
 
     // Character usage warnings
     const characterUsagePercent = (stats.current.charactersUsed / stats.limits.charactersPerMonth) * 100;
@@ -128,7 +128,7 @@ function UsageNotificationProvider({ children }: { children: React.ReactNode }) 
       );
       addNotification(notification);
     }
-  }, [stats]);
+  }, [stats, loading]);
 
   // Clean up old notifications based on persistence duration
   useEffect(() => {

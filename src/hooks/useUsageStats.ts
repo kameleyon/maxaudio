@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
 import api from '../services/api';
 
-interface UsageStats {
+export interface UsageStats {
   current: {
     charactersUsed: number;
     requestsThisMinute: number;
@@ -32,9 +32,29 @@ interface ErrorResponse {
   data?: any;
 }
 
+const defaultStats: UsageStats = {
+  current: {
+    charactersUsed: 0,
+    requestsThisMinute: 0,
+    voiceClones: 0
+  },
+  limits: {
+    charactersPerMonth: 1000000,
+    requestsPerMinute: 60,
+    voiceClones: 10
+  },
+  remaining: {
+    charactersPerMonth: 1000000,
+    requestsPerMinute: 60,
+    voiceClones: 10
+  },
+  history: [],
+  lastUpdated: new Date().toISOString()
+};
+
 const fetchUsageStats = async (): Promise<UsageStats> => {
   try {
-    const { data } = await api.get('/usage/stats');
+    const { data } = await api.get<UsageStats>('/usage/stats');
     return data;
   } catch (error) {
     const axiosError = error as AxiosError<ErrorResponse>;
@@ -43,11 +63,7 @@ const fetchUsageStats = async (): Promise<UsageStats> => {
       response: axiosError.response?.data,
       status: axiosError.response?.status
     });
-    throw new Error(
-      axiosError.response?.data?.message || 
-      axiosError.message || 
-      'Failed to fetch usage statistics'
-    );
+    return defaultStats;
   }
 };
 
@@ -63,28 +79,32 @@ export const useUsageStats = () => {
     isLoading: loading, 
     error,
     refetch
-  } = useQuery<UsageStats, Error>({
+  } = useQuery<UsageStats>({
     queryKey: ['usageStats'],
     queryFn: fetchUsageStats,
-    refetchInterval: 60000, // Refetch every minute
-    retry: 3,
-    staleTime: 30000 // Consider data stale after 30 seconds
+    refetchInterval: 60000,
+    retry: 1,
+    staleTime: 30000,
+    retryDelay: 5000,
+    initialData: defaultStats
   });
 
-  const warnings = stats ? [
-    ...(getUsagePercentage(stats.current.charactersUsed, stats.limits.charactersPerMonth) >= 80 
+  const currentStats = stats || defaultStats;
+
+  const warnings = [
+    ...(getUsagePercentage(currentStats.current.charactersUsed, currentStats.limits.charactersPerMonth) >= 80 
       ? ['You are approaching your monthly character limit'] 
       : []),
-    ...(getUsagePercentage(stats.current.requestsThisMinute, stats.limits.requestsPerMinute) >= 80 
+    ...(getUsagePercentage(currentStats.current.requestsThisMinute, currentStats.limits.requestsPerMinute) >= 80 
       ? ['High API request rate detected'] 
       : []),
-    ...(getUsagePercentage(stats.current.voiceClones, stats.limits.voiceClones) >= 80 
+    ...(getUsagePercentage(currentStats.current.voiceClones, currentStats.limits.voiceClones) >= 80 
       ? ['You are approaching your voice clone limit'] 
       : [])
-  ] : [];
+  ];
 
   return {
-    stats,
+    stats: currentStats,
     loading,
     error,
     getUsagePercentage,
