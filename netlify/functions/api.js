@@ -11,7 +11,7 @@ const app = express();
 const corsOptions = {
   origin: process.env.NODE_ENV === 'development'
     ? ['http://localhost:5173', 'http://127.0.0.1:5173']
-    : [process.env.URL, 'https://audiomax.netlify.app'], // Netlify automatically sets URL env variable
+    : process.env.URL, // Netlify automatically sets URL env variable
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],

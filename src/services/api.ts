@@ -3,7 +3,7 @@ import { authService } from './auth.service';
 
 const isProd = import.meta.env.PROD;
 const baseURL = isProd 
-  ? 'https://audiomax-server.onrender.com/api'
+  ? '/.netlify/functions/api'
   : 'http://localhost:5001/api';
 
 const api = axios.create({
@@ -12,7 +12,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json'
   },
-  withCredentials: false, // Set to false since we're using token-based auth
+  withCredentials: true, // Set to true to allow cookies if needed
   timeout: 10000 // 10 second timeout
 });
 
