@@ -9,11 +9,6 @@ import { Sidebar } from './Sidebar';
 export function Navbar() {
   const { theme, toggleTheme } = useTheme();
   const { user } = useAuth();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
 
   return (
     <>
@@ -21,13 +16,6 @@ export function Navbar() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <button
-                onClick={toggleMobileMenu}
-                className="md:hidden p-2 rounded-full hover:bg-white/10 transition"
-                aria-label="Toggle mobile menu"
-              >
-                <Bars3Icon className="w-5 h-5" />
-              </button>
               <Link to="/" className="text-2xl md:text-3xl font-bold font-montserrat text-white ml-8 md:ml-0">
                 AUDIOMAX
               </Link>
@@ -62,7 +50,7 @@ export function Navbar() {
         </div>
       </nav>
 
-      
+      {user && <Sidebar />}
     </>
   );
 }
