@@ -18,7 +18,7 @@ export function Toggle({ value, onChange, options }: ToggleProps) {
           onClick={() => onChange(option.value)}
           className={`px-3 py-1 text-sm rounded-md transition-colors ${
             value === option.value
-              ? 'bg-primary text-white'
+              ? 'bg-[#63248d]/80 text-white'
               : 'text-white/60 hover:text-white'
           }`}
         >

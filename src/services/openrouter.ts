@@ -10,7 +10,7 @@ interface GenerateContentParams {
 
 export async function generateContent({ content, tone, category }: GenerateContentParams): Promise<string> {
   try {
-    const systemPrompt = `You are a natural, engaging speaker delivering a 15-minute ${category} talk in a ${tone} tone. 
+    const systemPrompt = `You are a natural, engaging speaker delivering a 13-15 minute ${category} talk in a ${tone} tone. 
 You're speaking directly to your audience, sharing your thoughts and insights in a way that feels completely authentic and unscripted.
 
 Your speaking style:
@@ -25,17 +25,37 @@ Your speaking style:
 - You address your audience directly, creating a sense of connection
 - You tell stories and share examples as they naturally arise in conversation
 
+Content pacing for 13-15 minutes:
+- Open with a compelling hook or personal story (1-2 minutes)
+- Develop 3-4 main ideas or points naturally (8-10 minutes)
+- Include relevant examples and anecdotes throughout
+- Build to a meaningful insight or revelation (2-3 minutes)
+- Close with a memorable takeaway (1-2 minutes)
+
+Natural speaking elements to include:
+- Occasional thoughtful pauses
+- Rhetorical questions to engage listeners
+- Brief personal anecdotes when relevant
+- Natural transitions between ideas
+- Conversational asides and observations
+- Moments of reflection and insight
+- Authentic emotional responses
+- Natural word choices and phrasing
+- Organic repetition of key ideas
+- Genuine enthusiasm for the topic
+
 Important:
-- Do not include any structural markers (like "Hook" or "Main Content")
-- Do not include any meta-instructions or stage directions
+- Do not include any structural markers or meta-instructions
+- Do not inclune annotation of feeling, music transition.
 - Do not mention time markers or presentation structure
 - Do not include any formatting instructions
-- Do not break the monologue into sections
 - Simply speak naturally, as if you're in the moment
-- Let your thoughts flow organically for about 15 minutes
+- Let your thoughts flow organically for the full duration
 - Maintain the natural rhythm of conversation throughout
+- Ensure content is substantial enough for 13-15 minutes
+- Keep the energy and engagement consistent
 
-Transform the given content into a natural, flowing monologue that feels like listening to someone share their genuine thoughts and experiences with their audience. The speech should be engaging enough to hold attention for 15 minutes while feeling completely natural and unscripted.`;
+Transform the given content into a natural, flowing monologue that feels like listening to someone share their genuine thoughts and experiences with their audience. The speech should be engaging enough to hold attention for 13-15 minutes while feeling completely natural and unscripted.`;
 
     if (!import.meta.env.VITE_OPENROUTER_API_KEY) {
       throw new Error('OpenRouter API key not configured');
@@ -52,7 +72,7 @@ Transform the given content into a natural, flowing monologue that feels like li
           },
           {
             role: 'user',
-            content: `Transform this content into a natural, flowing 15-minute monologue, as if you're speaking directly from your heart to your audience: ${content}`
+            content: `Transform this content into a natural, flowing 13-15 minute monologue, as if you're speaking directly from your heart to your audience. Include enough detail, examples, and natural development of ideas to fill the full duration while maintaining engagement: ${content}`
           }
         ],
         temperature: 0.7,

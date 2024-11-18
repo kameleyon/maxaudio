@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import { Edit2, Save, RotateCcw } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { PencilIcon, CheckIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 
 interface TranscriptEditorProps {
   transcript: string;
@@ -16,78 +16,60 @@ export function TranscriptEditor({ transcript, onChange, onRegenerate }: Transcr
     setEditedTranscript(transcript);
   }, [transcript]);
 
-  useEffect(() => {
-    if (isEditing && textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [editedTranscript, isEditing]);
-
   const handleSave = () => {
     onChange(editedTranscript);
     setIsEditing(false);
+  };
+
+  const handleRegenerate = () => {
     onRegenerate(editedTranscript);
   };
 
   return (
-    <div className="h-full flex flex-col bg-white/5 rounded-lg border border-white/10">
-      <div className="flex items-center justify-between p-4 border-b border-white/10">
-        <h2 className="text-lg font-semibold">Generated Content</h2>
-        <div className="flex items-center gap-2">
+    <div className="relative">
+      <div className="absolute right-2 top-2 flex gap-2">
+        <button
+          onClick={() => isEditing ? handleSave() : setIsEditing(true)}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          title={isEditing ? "Save changes" : "Edit transcript"}
+        >
           {isEditing ? (
-            <button
-              onClick={handleSave}
-              className="flex items-center gap-2 px-3 py-1.5 bg-primary hover:bg-primary/80 rounded-lg transition-colors"
-            >
-              <Save className="w-4 h-4" />
-              <span>Save & Generate Audio</span>
-            </button>
+            <CheckIcon className="w-5 h-5 text-green-400" />
           ) : (
-            <>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                title="Edit transcript"
-              >
-                <Edit2 className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => onRegenerate(editedTranscript)}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                title="Regenerate audio"
-              >
-                <RotateCcw className="w-5 h-5" />
-              </button>
-            </>
+            <PencilIcon className="w-5 h-5 text-white/60" />
           )}
-        </div>
+        </button>
+        <button
+          onClick={handleRegenerate}
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          title="Regenerate audio"
+        >
+          <ArrowPathIcon className="w-5 h-5 text-white/60" />
+        </button>
       </div>
 
-      <div className="flex-1 p-4 overflow-hidden">
-        {isEditing ? (
-          <textarea
-            ref={textareaRef}
-            value={editedTranscript}
-            onChange={(e) => setEditedTranscript(e.target.value)}
-            className="w-full h-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg 
-                     focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary
-                     resize-none overflow-y-auto"
-            style={{
-              minHeight: '300px',
-              maxHeight: 'calc(100vh - 400px)'
-            }}
-          />
-        ) : (
-          <div 
-            className="h-full px-4 py-3 overflow-y-auto whitespace-pre-wrap"
-            style={{
-              maxHeight: 'calc(100vh - 400px)'
-            }}
-          >
-            {transcript}
-          </div>
-        )}
-      </div>
+      {isEditing ? (
+        <textarea
+          ref={textareaRef}
+          value={editedTranscript}
+          onChange={(e) => setEditedTranscript(e.target.value)}
+          className="w-full bg-[#ffffff10] rounded-lg p-4 text-white/90 focus:outline-none focus:ring-1 focus:ring-[#ffffff40] resize-none"
+          style={{
+            height: '300px', // Fixed height
+            overflowY: 'auto' // Enable vertical scrolling
+          }}
+        />
+      ) : (
+        <div 
+          className="w-full bg-[#ffffff10] rounded-lg p-4 text-white/90 whitespace-pre-wrap"
+          style={{
+            height: '300px', // Fixed height
+            overflowY: 'auto' // Enable vertical scrolling
+          }}
+        >
+          {transcript}
+        </div>
+      )}
     </div>
   );
 }
