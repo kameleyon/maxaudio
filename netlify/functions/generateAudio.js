@@ -1,14 +1,13 @@
 import { TextToSpeechClient } from '@google-cloud/text-to-speech';
+import path from 'path';
+import fs from 'fs';
 
 // Initialize Text-to-Speech client with proper credential handling
 function initializeTextToSpeechClient() {
-  if (!process.env.GOOGLE_CREDENTIALS) {
-    console.error('Google credentials not found in environment');
-    throw new Error('Google credentials not configured');
-  }
-
   try {
-    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS);
+    // Read credentials from file instead of environment variable
+    const credentialsPath = path.join(__dirname, 'google-credentials.json');
+    const credentials = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
     
     if (!credentials.client_email || !credentials.private_key) {
       throw new Error('Invalid Google credentials format');
