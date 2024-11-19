@@ -6,11 +6,6 @@ const config = {
     expiresIn: process.env.JWT_EXPIRES_IN || '24h'
   },
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
-  google: {
-    clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    projectId: process.env.GOOGLE_PROJECT_ID
-  },
   stripe: {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,

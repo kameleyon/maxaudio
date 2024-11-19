@@ -54,7 +54,6 @@ server/temp/
 .env
 .env.local
 .env.*.local
-server/google-credentials.json
 
 # Audio files
 server/audios/*.mp3

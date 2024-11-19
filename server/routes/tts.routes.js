@@ -1,7 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const openSourceTTS = require('../services/opensource-tts.service');
-const googleTTS = require('../services/tts.service');
 const playHT = require('../services/playht.service');
 const { requireAuth } = require('../middleware/auth');
 
@@ -35,16 +34,6 @@ router.post('/generate', requireAuth, async (req, res) => {
     if (voice.startsWith('playht-')) {
       // Use PlayHT for voices starting with 'playht-'
       audioContent = await playHT.synthesizeSpeech(text, voice.replace('playht-', ''));
-    } else if (voice.startsWith('en-')) {
-      // Use Google TTS for voices starting with 'en-'
-      audioContent = await googleTTS.generateAudio(text, {
-        language,
-        voiceName: voice,
-        pitch,
-        speakingRate,
-        publish,
-        userId: req.user.userId
-      });
     } else if (voice.startsWith('fastpitch')) {
       // Use FastPitch for voices starting with 'fastpitch'
       audioContent = await openSourceTTS.generateWithFastPitch(text, {
@@ -64,10 +53,10 @@ router.post('/generate', requireAuth, async (req, res) => {
         userId: req.user.userId
       });
     } else {
-      // Default to Google TTS
-      audioContent = await googleTTS.generateAudio(text, {
+      // Default to open-source TTS
+      audioContent = await openSourceTTS.generateWithCoqui(text, {
+        speaker: '0',
         language,
-        voiceName: 'en-US-Neural2-D',
         pitch,
         speakingRate,
         publish,
@@ -86,8 +75,7 @@ router.post('/generate', requireAuth, async (req, res) => {
 router.get('/voices', async (req, res) => {
   try {
     // Get voices from all services
-    const [googleVoices, openSourceVoices, playHTVoices] = await Promise.all([
-      googleTTS.getVoices(),
+    const [openSourceVoices, playHTVoices] = await Promise.all([
       openSourceTTS.getVoices(),
       playHT.getVoices()
     ]);
@@ -100,17 +88,6 @@ router.get('/voices', async (req, res) => {
       gender: voice.gender || 'Unknown',
       type: 'PlayHT'
     }));
-
-    // Format Google voices
-    const formattedGoogleVoices = googleVoices
-      .filter(voice => voice.languageCodes[0].startsWith('en-'))
-      .map(voice => ({
-        id: voice.name,
-        name: `${voice.name.split('-').pop()} (${voice.languageCodes[0].split('-')[1]})`,
-        flag: voice.languageCodes[0].startsWith('en-GB') ? '🇬🇧' : '🇺🇸',
-        gender: voice.ssmlGender.charAt(0) + voice.ssmlGender.slice(1).toLowerCase(),
-        type: 'Google Neural'
-      }));
 
     // Add FastPitch voices
     const fastPitchVoices = [
@@ -144,7 +121,6 @@ router.get('/voices', async (req, res) => {
     // Combine all voices, putting PlayHT voices first
     const allVoices = [
       ...formattedPlayHTVoices,
-      ...formattedGoogleVoices,
       ...fastPitchVoices,
       ...yourTTSVoices,
       ...openSourceVoices

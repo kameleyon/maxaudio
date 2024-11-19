@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { TextToSpeechClient } from '@google-cloud/text-to-speech';
 import { config as dotenvConfig } from 'dotenv';
 import fs from 'fs';
 import path from 'path';
@@ -19,11 +18,6 @@ const __dirname = path.dirname(__filename);
 dotenvConfig();
 
 export const audioRoutes = Router();
-
-// Initialize client with credentials file
-const client = new TextToSpeechClient({
-  keyFilename: path.join(__dirname, '..', 'google-credentials.json')
-});
 
 // Split text into chunks of approximately 4000 bytes (leaving room for overhead)
 function splitTextIntoChunks(text) {
@@ -167,23 +161,9 @@ audioRoutes.post("/generate",
       // Generate audio for each chunk
       const audioBuffers = [];
       for (const chunk of chunks) {
-        const request = {
-          input: { text: chunk },
-          voice: {
-            languageCode,
-            name: voiceName,
-          },
-          audioConfig: {
-            audioEncoding: "MP3"
-          },
-        };
-
-        const [response] = await client.synthesizeSpeech(request);
-        if (!response || !response.audioContent) {
-          throw new Error('No audio content received from Google TTS');
-        }
-        
-        audioBuffers.push(response.audioContent);
+        // Process each chunk
+        const audioFile = await TTSService.synthesizeSpeech(chunk, voiceName);
+        audioBuffers.push(audioFile);
       }
       
       // Combine all audio buffers

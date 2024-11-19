@@ -1,5 +1,4 @@
-import { TextToSpeechClient } from '@google-cloud/text-to-speech';
-import { Storage } from '@google-cloud/storage';
+
 import { v4 as uuidv4 } from 'uuid';
 import ffmpeg, { FfprobeData, FfprobeStream } from 'fluent-ffmpeg';
 import { promisify } from 'util';
