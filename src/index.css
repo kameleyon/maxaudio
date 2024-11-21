@@ -1,0 +1,121 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@100;300;400;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: #40b4c7;  /* Light blue/teal for light theme */
+  --secondary: #189571;
+  --accent: #9de9c7;   /* Updated accent color */
+  --background: #0f0035;
+}
+
+.dark {
+  --primary: #63248d;  /* Keep original purple for dark theme */
+  --secondary: #189571;
+  --accent: #bceee7;
+}
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  @apply antialiased;
+}
+
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-gradient {
+  background-size: 200% 200%;
+  animation: gradient 8s ease infinite;
+}
+
+/* Remove Clerk's default styles */
+.cl-internal-b3fm6y {
+  background: transparent !important;
+  padding: 0 !important;
+}
+
+.cl-card {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.cl-formButtonPrimary {
+  background-color: var(--primary) !important;
+}
+
+.cl-formButtonPrimary:hover {
+  background-color: rgba(64, 180, 199, 0.8) !important;  /* Updated for light theme */
+}
+
+.dark .cl-formButtonPrimary:hover {
+  background-color: rgba(99, 36, 141, 0.8) !important;  /* Keep dark theme hover */
+}
+
+.cl-footerActionLink {
+  color: var(--accent) !important;
+}
+
+.cl-footerActionLink:hover {
+  color: rgba(157, 233, 199, 0.8) !important;  /* Updated accent hover */
+}
+
+/* Custom Clerk form styling */
+.cl-formFieldInput {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.cl-formFieldLabel {
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.cl-formHeaderTitle,
+.cl-formHeaderSubtitle {
+  color: white !important;
+}
+
+.cl-socialButtonsBlockButton {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border-color: rgba(255, 255, 255, 0.2) !important;
+  color: white !important;
+}
+
+.cl-socialButtonsBlockButton:hover {
+  background-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.cl-dividerText {
+  color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.cl-dividerLine {
+  border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Fix mobile input interaction */
+@media (max-width: 768px) {
+  input, textarea {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    position: static !important;
+    z-index: auto !important;
+    -webkit-user-select: text !important;
+    user-select: text !important;
+    -webkit-touch-callout: default !important;
+    touch-action: auto !important;
+  }
+}
