@@ -12,22 +12,12 @@
 
 ## Overview
 
-AudioMax is a sophisticated text-to-speech platform that combines multiple TTS engines for maximum flexibility and reliability:
-
-1. Google Cloud TTS for premium voice quality
-2. Coqui YourTTS for open-source multilingual support
-3. Piper TTS for offline processing capability
-
-This multi-engine approach ensures high availability and allows for fallback options while providing users with a choice of voice synthesis technologies.
+AudioMax is a sophisticated text-to-speech platform designed for maximum flexibility and reliability, utilizing advanced TTS engines and technologies.
 
 ### Vision
 To provide enterprise-grade text-to-speech capabilities with unmatched natural speech synthesis and content generation, making professional audio content creation accessible and efficient.
 
 ### Key Differentiators
-- Multi-engine TTS architecture:
-  * Google Cloud TTS for premium quality
-  * Open-source engines (Coqui, Piper) for flexibility
-  * Automatic fallback system
 - Advanced SSML implementation for human-like speech
 - Emotion control and natural voice enhancement
 - Enterprise-grade security with JWT authentication
@@ -38,42 +28,28 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
 ## Core Features
 
 ### Voice Synthesis
-- **Google Cloud TTS**
-  - Neural network-based voice generation
-  - Comprehensive SSML support
-  - Multiple languages and accents
-  - Voice customization
-  - Chunked audio processing
-  - Real-time preview
-
-- **Coqui YourTTS**
-  - Multi-speaker, multi-lingual support
-  - Natural-sounding speech
-  - Emotion control capabilities
-  - Voice cloning features
-  - Offline processing capability
-
-- **Piper TTS**
-  - Fast and efficient processing
-  - Offline capability
-  - SSML support
-  - Lower resource usage
+- Advanced neural network-based voice generation
+- Comprehensive SSML support
+- Multiple languages and accents
+- Voice customization
+- Chunked audio processing
+- Real-time preview
 
 ### Natural Speech Enhancement
-- **Emotion Control**
+- Emotion Control
   - Happy, sad, excited tones
   - Dynamic pitch adjustment
   - Speaking rate modification
   - Style weight control
 
-- **Natural Markers**
+- Natural Markers
   - Thoughtful pauses with "hmm"
   - Natural breathing patterns
   - Emphasis markers
   - Contextual pauses
 
 ### Authentication & Security
-- **Custom JWT Authentication**
+- Custom JWT Authentication
   - Secure token-based authentication
   - Role-based access control (RBAC)
   - Token refresh mechanism
@@ -81,8 +57,7 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
   - Session management
 
 ### Studio Environment
-- **Audio Workspace**
-  - Professional editing interface
+- Professional editing interface
   - Content preview
   - SSML visualization
   - Project saving
@@ -102,15 +77,11 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
 ### Backend
 - Express.js server
 - MongoDB Atlas database
-- Google Cloud TTS integration
-- Python TTS services
 - Node.js service layer
 - JWT authentication
 - Stripe integration
 
 ### Voice Processing
-- Google Cloud TTS API
-- Python-based TTS engines
 - Audio enhancement pipeline
 - SSML processing
 - Voice modification system
@@ -120,10 +91,8 @@ To provide enterprise-grade text-to-speech capabilities with unmatched natural s
 
 ### Prerequisites
 - Node.js (v16 or higher)
-- Python 3.7 or higher
-- MongoDB Atlas account
-- Google Cloud account with TTS API enabled
 - npm 6 or higher
+- MongoDB Atlas account
 
 ### Environment Variables
 Create a `.env` file in the root directory with the necessary configuration (see .env.example for template).
@@ -140,29 +109,8 @@ Create a `.env` file in the root directory with the necessary configuration (see
    npm install
    ```
 
-3. Set up Python environment:
+3. Start the development server:
    ```bash
-   cd server
-   pip install -r requirements.txt
-   ```
-
-4. Download voice models:
-   ```bash
-   npm run setup:voices
-   ```
-
-5. Configure Google Cloud credentials:
-   ```bash
-   npm run setup:credentials
-   ```
-
-6. Start the development servers:
-   ```bash
-   # Terminal 1 - Backend
-   cd server
-   node index.js
-
-   # Terminal 2 - Frontend
    npm run dev
    ```
 
@@ -242,9 +190,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - Feature Requests: feedback@audiomax.ai
 
 ## Acknowledgments
-- [Google Cloud TTS](https://cloud.google.com/text-to-speech) for premium voice synthesis
-- [Coqui TTS](https://github.com/coqui-ai/TTS) for open-source voice synthesis
-- [Piper TTS](https://github.com/rhasspy/piper) for backup voice synthesis
 - [MongoDB Atlas](https://www.mongodb.com/atlas/database) for database
 - [Stripe](https://stripe.com) for payment processing
 - All contributors and maintainers
