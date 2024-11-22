@@ -1,7 +1,6 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs').promises;
-const voiceEnhancement = require('./voice-enhancement.service');
 
 class OpenSourceTTSService {
     constructor() {
@@ -135,11 +134,6 @@ class OpenSourceTTSService {
                 voice,
                 outputPath
             );
-
-            // Apply voice enhancement if needed
-            if (options.tone) {
-                return await voiceEnhancement.enhanceSpeech(audio, options.tone);
-            }
 
             return audio;
         } catch (error) {
