@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import authService from '../../services/auth.service';
@@ -86,7 +86,7 @@ export function SignUpForm() {
       return;
     }
 
-     // Reinforce email format validation
+    // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError('Please enter a valid email address');
@@ -103,8 +103,7 @@ export function SignUpForm() {
 
     try {
       await register(formData);
-      // Redirect to the NewUserRedirect component instead of /studio
-      navigate('/new-user-redirect'); // Replace with the appropriate route for NewUserRedirect
+      navigate('/new-user-redirect');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
     } finally {
@@ -249,16 +248,6 @@ export function SignUpForm() {
           {isLoading ? 'Creating account...' : 'Create account'}
         </button>
       </form>
-
-      <div className="flex items-center justify-center mt-4 text-sm">
-        <span className="text-white/60">Already have an account?</span>
-        <a 
-          href="/" 
-          className="text-[#9de9c7] hover:text-[#9de9c7]/80 ml-2"
-        >
-          Sign in
-        </a>
-      </div>
     </div>
   );
 }

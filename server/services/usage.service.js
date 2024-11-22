@@ -1,4 +1,5 @@
 const { userService } = require('./user.service.js');
+const { Usage } = require('../models/usage.model.js');
 const Stripe = require('stripe');
 
 const MAX_RETRY_ATTEMPTS = 3;
@@ -14,11 +15,8 @@ function getStripe() {
 
 class UsageService {
   constructor() {
-    // In-memory cache with TTL
-    this.usageCache = new Map();
-    this.usageHistory = new Map();
-    // Clean up cache every minute
-    setInterval(() => this.cleanupCache(), 60000);
+    // Initialize Redis or other caching mechanism if needed
+    this.cleanupInterval = setInterval(() => this.cleanupCache(), 60000);
   }
 
   getTierLimits(tier) {
@@ -43,49 +41,33 @@ class UsageService {
     return limits[tier] || limits.free;
   }
 
-  getCurrentUsage(userId, type) {
-    const key = this.getUsageKey(userId, type);
-    return this.usageCache.get(key)?.amount || 0;
-  }
-
-  getUsageHistory(userId) {
-    return this.usageHistory.get(userId) || [];
-  }
-
-  // Get usage key for rate limiting
-  getUsageKey(userId, type) {
-    return `${userId}:${type}:${this.getCurrentMinute()}`;
-  }
-
-  // Get current minute for rate limiting
-  getCurrentMinute() {
-    return Math.floor(Date.now() / 60000);
-  }
-
-  // Clean up expired cache entries
-  cleanupCache() {
-    const now = Date.now();
-    const currentMinute = this.getCurrentMinute();
-
-    // Clean up minute-based cache
-    for (const [key, value] of this.usageCache.entries()) {
-      const [, , minute] = key.split(':');
-      if (Number(minute) < currentMinute) {
-        this.usageCache.delete(key);
+  async getCurrentUsage(userId, type) {
+    try {
+      const usage = await Usage.findOne({ userId });
+      if (!usage) return 0;
+      
+      if (type === 'api_request') {
+        return usage.current.requestsThisMinute;
+      } else if (type === 'characters') {
+        return usage.current.charactersUsed;
+      } else if (type === 'voice_clones') {
+        return usage.current.voiceClones;
       }
+      
+      return 0;
+    } catch (error) {
+      console.error('Error getting current usage:', error);
+      return 0;
     }
+  }
 
-    // Clean up history older than 30 days
-    const thirtyDaysAgo = now - (30 * 24 * 60 * 60 * 1000);
-    for (const [userId, history] of this.usageHistory.entries()) {
-      const filteredHistory = history.filter(entry => 
-        new Date(entry.date).getTime() > thirtyDaysAgo
-      );
-      if (filteredHistory.length === 0) {
-        this.usageHistory.delete(userId);
-      } else {
-        this.usageHistory.set(userId, filteredHistory);
-      }
+  async getUsageHistory(userId) {
+    try {
+      const usage = await Usage.findOne({ userId });
+      return usage?.history || [];
+    } catch (error) {
+      console.error('Error getting usage history:', error);
+      return [];
     }
   }
 
@@ -95,33 +77,37 @@ class UsageService {
       const tier = user.role || 'free';
       const limits = this.getTierLimits(tier);
 
-      // Get current usage
-      const currentUsage = {
-        charactersUsed: Number(user.metadata?.usageData?.charactersUsed || 0),
-        requestsThisMinute: this.getCurrentUsage(userId, 'api_request'),
-        voiceClones: Number(user.metadata?.usageData?.voiceClones || 0)
-      };
+      // Get or create usage record
+      let usage = await Usage.findOne({ userId });
+      if (!usage) {
+        usage = new Usage({
+          userId,
+          current: {
+            charactersUsed: 0,
+            requestsThisMinute: 0,
+            voiceClones: 0
+          },
+          history: []
+        });
+        await usage.save();
+      }
 
       // Calculate remaining
       const remaining = {
-        charactersPerMonth: Math.max(0, limits.charactersPerMonth - currentUsage.charactersUsed),
-        requestsPerMinute: Math.max(0, limits.requestsPerMinute - currentUsage.requestsThisMinute),
-        voiceClones: Math.max(0, limits.voiceClones - currentUsage.voiceClones)
+        charactersPerMonth: Math.max(0, limits.charactersPerMonth - usage.current.charactersUsed),
+        requestsPerMinute: Math.max(0, limits.requestsPerMinute - usage.current.requestsThisMinute),
+        voiceClones: Math.max(0, limits.voiceClones - usage.current.voiceClones)
       };
 
-      // Get usage history
-      const history = this.getUsageHistory(userId);
-
       return {
-        current: currentUsage,
+        current: usage.current,
         limits,
         remaining,
-        history,
-        lastUpdated: new Date().toISOString()
+        history: usage.history,
+        lastUpdated: usage.lastUpdated
       };
     } catch (error) {
       console.error('Error getting user usage stats:', error);
-      // Return default stats if there's an error
       const limits = this.getTierLimits('free');
       return {
         current: {
@@ -136,63 +122,72 @@ class UsageService {
           voiceClones: limits.voiceClones
         },
         history: [],
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date()
       };
     }
   }
 
-  async updateUserUsage(userId, usageData) {
+  async updateUserUsage(userId, updates) {
     try {
-      const user = await userService.getUser(userId);
-
-      // Update cache for minute-based metrics
-      if (usageData.requestsThisMinute) {
-        const key = this.getUsageKey(userId, 'api_request');
-        const currentAmount = this.getCurrentUsage(userId, 'api_request');
-        this.usageCache.set(key, {
-          amount: currentAmount + usageData.requestsThisMinute,
-          timestamp: Date.now()
-        });
+      let usage = await Usage.findOne({ userId });
+      if (!usage) {
+        usage = new Usage({ userId });
       }
 
-      // Update persistent usage data
-      const currentUsage = user.metadata?.usageData || {};
-      const updatedUsage = {
-        ...currentUsage,
-        charactersUsed: (currentUsage.charactersUsed || 0) + (usageData.charactersUsed || 0),
-        voiceClones: (currentUsage.voiceClones || 0) + (usageData.voiceClones || 0),
-        lastUpdated: new Date().toISOString()
-      };
-
-      await userService.updateUser(userId, {
-        metadata: {
-          ...user.metadata,
-          usageData: updatedUsage
+      // Update usage values
+      for (const [key, value] of Object.entries(updates)) {
+        if (key === 'api_request') {
+          usage.current.requestsThisMinute = value;
+        } else if (key === 'characters') {
+          usage.current.charactersUsed = value;
+        } else if (key === 'voice_clones') {
+          usage.current.voiceClones = value;
         }
-      });
+      }
 
       // Update history
-      const history = this.getUsageHistory(userId);
-      const today = new Date().toISOString().split('T')[0];
-      const todayEntry = history.find(entry => entry.date === today);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const historyIndex = usage.history.findIndex(h => 
+        h.date.getTime() === today.getTime()
+      );
 
-      if (todayEntry) {
-        Object.entries(usageData).forEach(([type, amount]) => {
-          todayEntry[type] = (todayEntry[type] || 0) + amount;
+      if (historyIndex === -1) {
+        usage.history.push({
+          date: today,
+          requests: usage.current.requestsThisMinute,
+          storage: usage.current.charactersUsed
         });
       } else {
-        history.unshift({
+        usage.history[historyIndex] = {
           date: today,
-          ...usageData
-        });
+          requests: usage.current.requestsThisMinute,
+          storage: usage.current.charactersUsed
+        };
       }
 
-      this.usageHistory.set(userId, history.slice(0, 30)); // Keep last 30 days
-
-      return this.getUserUsageStats(userId);
+      usage.lastUpdated = new Date();
+      await usage.save();
+      return usage;
     } catch (error) {
       console.error('Error updating user usage:', error);
       throw error;
+    }
+  }
+
+  async cleanupCache() {
+    try {
+      // Get all usage records
+      const usages = await Usage.find({});
+      
+      // Reset requestsThisMinute for all users
+      for (const usage of usages) {
+        usage.current.requestsThisMinute = 0;
+        await usage.save();
+      }
+    } catch (error) {
+      console.error('Error cleaning up usage cache:', error);
     }
   }
 }

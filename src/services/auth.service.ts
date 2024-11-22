@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API_URL = 'http://localhost:5000/api';
 
 export interface User {
   id: string;
@@ -58,13 +58,9 @@ class AuthService {
     }
   }
 
-  async register(email: string, password: string, username: string): Promise<LoginResponse> {
+  async register(data: { email: string; password: string; username: string; name: string }): Promise<LoginResponse> {
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, {
-        email,
-        password,
-        username
-      });
+      const response = await axios.post(`${API_URL}/auth/register`, data);
 
       const { token, user } = response.data;
       this.setToken(token);

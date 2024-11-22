@@ -1,46 +1,26 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-const { connect: connectDb, disconnect: disconnectDb } = require('./config/database');
+const { connectDb, disconnectDb } = require('./db');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5001;
-const isDevelopment = process.env.NODE_ENV === 'development';
+const PORT = process.env.PORT || 5000;
+const isDevelopment = process.env.NODE_ENV !== 'production';
 
-// CORS configuration with credentials
-const corsOptions = {
-  origin: isDevelopment
-    ? ['http://localhost:5173', 'http://127.0.0.1:5173']
-    : [process.env.PRODUCTION_CLIENT_URL],
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true,
-  maxAge: 86400,
-  exposedHeaders: ['set-cookie']
-};
+// Connect to MongoDB
+connectDb().catch(err => {
+  console.error('Failed to connect to MongoDB:', err);
+  process.exit(1);
+});
 
 // Middleware
-app.use(cors(corsOptions));
-app.use(cookieParser());
-app.use(helmet({
-  contentSecurityPolicy: isDevelopment ? false : {
-    directives: {
-      defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://js.stripe.com'],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'https:'],
-      connectSrc: ["'self'", 'https://api.stripe.com'],
-      frameSrc: ["'self'", 'https://js.stripe.com'],
-      objectSrc: ["'none'"],
-      upgradeInsecureRequests: []
-    }
-  },
-  crossOriginEmbedderPolicy: false
+app.use(cors({
+  origin: process.env.CORS_ALLOWED_ORIGINS?.split(',') || 'http://localhost:5174',
+  credentials: true
 }));
-app.use(morgan('dev'));
+
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -58,7 +38,8 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date(),
-    environment: process.env.NODE_ENV
+    environment: process.env.NODE_ENV,
+    dbStatus: require('mongoose').connection.readyState === 1 ? 'connected' : 'disconnected'
   });
 });
 
@@ -77,21 +58,6 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start server
-async function startServer() {
-  try {
-    await connectDb();
-    app.listen(PORT, () => {
-      console.log(`AudioMax server running on port ${PORT}`);
-      console.log(`Environment: ${process.env.NODE_ENV}`);
-      console.log(`CORS enabled for: ${corsOptions.origin.join(', ')}`);
-    });
-  } catch (error) {
-    console.error('Failed to start server:', error);
-    process.exit(1);
-  }
-}
-
 // Handle graceful shutdown
 process.on('SIGTERM', async () => {
   console.log('SIGTERM received. Shutting down gracefully...');
@@ -104,5 +70,27 @@ process.on('SIGINT', async () => {
   await disconnectDb();
   process.exit(0);
 });
+
+// Start server with port retry logic
+const startServer = (retryCount = 0) => {
+  const server = app.listen(PORT)
+    .on('error', (err) => {
+      if (err.code === 'EADDRINUSE' && retryCount < 3) {
+        console.warn(`Port ${PORT} is in use, trying port ${PORT + 1}...`);
+        server.close();
+        startServer(retryCount + 1);
+      } else {
+        console.error('Failed to start server:', err);
+        process.exit(1);
+      }
+    })
+    .on('listening', () => {
+      const actualPort = server.address().port;
+      console.log(`Server is running on port ${actualPort}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+    });
+
+  return server;
+};
 
 startServer();

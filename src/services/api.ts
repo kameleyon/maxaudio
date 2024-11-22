@@ -4,7 +4,7 @@ import authService from './auth.service';
 const isProd = import.meta.env.PROD;
 const baseURL = isProd 
   ? '/.netlify/functions/api'
-  : 'http://localhost:5001/api';
+  : '/api';
 
 const api = axios.create({
   baseURL,
