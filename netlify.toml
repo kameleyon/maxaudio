@@ -5,7 +5,8 @@
 
 [functions]
   node_bundler = "esbuild"
-  external_node_modules = ["express", "mongodb", "mongoose", "stripe", "nodemailer", "cookie-parser", "cors", "helmet", "playht"]
+  external_node_modules = ["express", "mongodb", "mongoose", "stripe", "nodemailer", "cookie-parser", "cors", "helmet", "playht", "@google-cloud/text-to-speech"]
+  included_files = ["!**/voice-enhancement.service.js"]
 
 [[plugins]]
   package = "@netlify/plugin-functions-install-core"
