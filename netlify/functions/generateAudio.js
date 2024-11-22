@@ -1,4 +1,4 @@
-import axios from 'axios';
+const axios = require('axios');
 
 async function generateAudioWithPlayHT(text, voice) {
   try {
@@ -33,7 +33,7 @@ async function generateAudioWithPlayHT(text, voice) {
   }
 }
 
-export async function handler(event, context) {
+exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return {
       statusCode: 405,
@@ -79,4 +79,4 @@ export async function handler(event, context) {
       })
     };
   }
-}
+};
