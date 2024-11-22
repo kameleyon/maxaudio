@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import SignUpForm from '../components/auth/SignUpForm';
+import { SignUpForm } from '../components/auth/SignUpForm';
 import authService from '../services/auth.service';
 
 export function SignUp() {

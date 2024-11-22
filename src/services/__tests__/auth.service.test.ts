@@ -77,7 +77,12 @@ describe('AuthService', () => {
         })
       );
 
-      const response = await authService.register('new@example.com', 'password123', 'newuser');
+      const response = await authService.register({
+        email: 'new@example.com',
+        password: 'password123',
+        username: 'newuser',
+        name: 'New User'
+      });
       expect(response).toEqual(mockResponse);
       expect(authService.getToken()).toBe(mockResponse.token);
     });
@@ -89,7 +94,12 @@ describe('AuthService', () => {
         })
       );
 
-      await expect(authService.register('invalid-email', 'password', 'testuser')).rejects.toThrow();
+      await expect(authService.register({
+        email: 'invalid-email',
+        password: 'password',
+        username: 'testuser',
+        name: 'Test User'
+      })).rejects.toThrow();
     });
   });
 
